@@ -16,31 +16,82 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>
 """
 
-import ppad.learner.somelearner as somelearner
-# game should import all other classes needed in ppad.padsimulator
-import ppad.padsimilator.game as game
+"""
+# This example follows the same API of OpenAI Gym.
 
-#######################
+# Basic OpenAi Gym example.
+import gym
+env = gym.make('CartPole-v0')
+env.reset()
+for _ in range(1000):
+    env.render()
+    # Take a random action.
+    env.step(env.action_space.sample())
+
+# OpenAi Gym used together with an agent.
+import gym
+env = gym.make('CartPole-v0')
+for i_episode in range(20):
+    observation = env.reset()
+    for t in range(100):
+        env.render()
+        print(observation)
+        action = env.action_space.sample()
+        observation, reward, done, info = env.step(action)
+        if done:
+            print("Episode finished after {} timesteps".format(t+1))
+            break
+
+# Inspect environment.
+import gym
+env = gym.make('CartPole-v0')
+print(env.action_space)
+#> Discrete(2)
+print(env.observation_space)
+#> Box(4,)
+"""
+
+import ppad.agent.someagent as someagent
+import ppad.pad.game as game
+
+
+
 # Initialization.
-similator = game.new()
-# The learner should have an API that an take in a generic padsimulator.
+env = game.make()
+# The agent should have an API that an take in a generic environment.
 # Simulator should have all of the parameters needed for the game itself.
-# Learner could have algorithm specific parameters.
-# Can take pre-trained policy.
-leaner = somelearner.new(similator=similator, policy=None, )
+# Agent could have algorithm specific parameters.
+# Agent should be able to take pre-trained policy.
+agent = someagent(env=env, savf=None, )
 
 #######################
 # Learning.
-# learn() should only take in the parameters needed for the learning.
-leaner.learn(episodes=1000, epsilon=1e-4)
+n_episodes = 100
+max_step = 10000
+for i_episode in range(n_episodes):
+    observation = env.reset()
+    for i_step in range(max_step):
+        env.render()
+        print(observation)
+
+        # 1. Take a random action.
+        action = env.action_space.sample()
+        # 2. Or take an action given by the current policy.
+        action = agent.policy(state=env.state())
+
+        observation, reward, done, info = env.step(action)
+
+        if done:
+            print("Episode finished after {} timesteps".format(i_step + 1))
+            break
 
 #######################
 # Analysis.
-leaner.stat()
-leaner.plot()
+agent.stat()
+agent.plot()
 
 #######################
 # Save results.
-pad_policy = leaner.policy()
-pad_actionValues = leaner.actionValues()
-pad_stateValues = leaner.stateValues()
+pad_policy = agent.policy()
+pad_actionValues = agent.actionValues()
+pad_stateValues = agent.stateValues()
