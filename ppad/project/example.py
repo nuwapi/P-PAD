@@ -62,7 +62,7 @@ env = game.make()
 # Simulator should have all of the parameters needed for the game itself.
 # Agent could have algorithm specific parameters.
 # Agent should be able to take pre-trained policy.
-agent = someagent(env=env, savf=None, )
+agent = someagent(env=env, q=None, )
 
 #######################
 # Learning.

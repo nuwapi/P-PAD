@@ -18,7 +18,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>
 
 
 class PlayerAction:
-    pass
+    # List of player actions.
+    player_action = ['up', 'down', 'left', 'right', 'pass']
 
-    def sample(self):
+    def sample(self, type='random'):
         pass
