@@ -17,6 +17,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>
 """
 
 import numpy as np
+import random
+from datetime import datetime
 
 import ppad.pad.parm as parm
 import ppad.pad.action.player as player
@@ -65,7 +67,7 @@ class Game:
         # All player and enemy buffs and debuffs. This should be a list of some sort.
         self.buff = buff
         # The orb identities of the board. See fill_board() for details.
-        self.board = np.zeros((self.dim_h, self.dim_v))
+        self.board = -1 * np.ones((self.dim_h, self.dim_v))
         # 0 means not locked, 1 means locked.
         self.locked = np.zeros((self.dim_h, self.dim_v))
         # 0 means not enhanced, 1 means enhanced.
@@ -81,7 +83,10 @@ class Game:
         # The observation space for this environment.
         # TODO: Fill this in.
         self.observation_space = None
+        # Coloring and letter scheme for rendering.
+        self.render_dict = parm.default_render_dict
 
+        random.seed(datetime.now())
         self.fill_board()
 
     def step(self, action):
@@ -89,17 +94,16 @@ class Game:
         done = False
         if action == 'pass':
             done = True
-            # A list that stores orb type and number of orbs in 2-tuple.
-            # TODO: Expand to a 4-tuple.
-            all_canceled = []
+            # A list of dictionaries representing combos.
+            all_combos = []
             while True:
-                canceled = self.cancel()
-                if len(canceled) < 1:
+                combos = self.cancel()
+                if len(combos) < 1:
                     break
-                all_canceled += canceled
+                all_combos += combos
                 self.drop()
                 self.fill_board()
-            reward = self.damage(all_canceled)
+            reward = self.damage(all_combos)
         else:
             self.apply_action(action)
 
@@ -110,12 +114,23 @@ class Game:
         return observation, reward, done, info
 
     def reset(self):
+        random.seed(datetime.now())
         self.fill_board(reset=True)
         # Also reset finger location.
         return self.state()
 
     def render(self):
-        print('The render function has not been implemented.')
+        print('+-----------+')
+        for y in range(self.dim_v):
+            reverse_y = self.dim_v - 1 - y
+            if y > 0:
+                print('|-----------|')
+            print_str = '|'
+            for x in range(self.dim_h):
+                key = self.board[x, reverse_y]
+                print_str += self.render_dict[key][1] + self.render_dict[key][0] + '\033[0m' + '|'
+            print(print_str)
+        print('+-----------+')
 
     def state(self):
         return self.board
@@ -123,35 +138,112 @@ class Game:
     def fill_board(self, reset=False):
         """
         The state of the board is represented by integers.
-        0  - empty
-        1  - red
-        2  - blue
-        3  - green
-        4  - light
-        5  - dark
-        6  - heal
-        7  - jammer
-        8  - poison
-        9  - mortal poison
-        10 - bomb
-
+        We do not handle locked and enhanced orbs at this stage.
+        -1 - empty
+        0  - red
+        1  - blue
+        2  - green
+        3  - light
+        4  - dark
+        5  - heal
+        6  - jammer
+        7  - poison
+        8  - mortal poison
+        9  - bomb
         :param reset: If True, clear out the board first before filling.
         :return:
         """
-        pass
+        for orb in np.nditer(self.board, op_flags=['readwrite']):
+            if orb == -1 or reset is True:
+                orb[...] = self.random_orb(self.skyfall)
+
+        # TODO: In the future, enhanced and locked arrays should also be updated here.
 
     def drop(self):
-        pass
+        for x in range(self.dim_h):
+            col = []
+            for y in range(self.dim_v):
+                if self.board[x, y] != -1:
+                    col.append(self.board[x, y])
+                self.board[x, :] = -1
+            for y in range(len(col)):
+                self.board[x, y] = col[y]
+        # TODO: Apply the same update to enhanced and locked orbs.
 
     def cancel(self):
         return []
 
     def apply_action(self, action):
-        # Move orb and update finger location.
-        pass
+        """
+        :param action: left, right, up, down
+        """
+        if action == 'left':
+            target_x = self.finger[0] - 1
+            target_y = self.finger[1]
+            if target_x >= 0:
+                self.swap(self.finger[0], self.finger[1], target_x, target_y, True)
+        elif action == 'right':
+            target_x = self.finger[0] + 1
+            target_y = self.finger[1]
+            if target_x <= self.dim_h - 1:
+                self.swap(self.finger[0], self.finger[1], target_x, target_y, True)
+        elif action == 'up':
+            target_x = self.finger[0]
+            target_y = self.finger[1] + 1
+            if target_y <= self.dim_v - 1:
+                self.swap(self.finger[0], self.finger[1], target_x, target_y, True)
+        elif action == 'down':
+            target_x = self.finger[0]
+            target_y = self.finger[1] - 1
+            if target_y >= 0:
+                self.swap(self.finger[0], self.finger[1], target_x, target_y, True)
 
-    def damage(self, cancels):
+    def swap(self, x1, y1, x2, y2, move_finger):
+        """
+        Swap the location of two orbs. x = 0 is bottom, y = 0 is left.
+        Swap also update the finger location.
+        :param x1: The horizontal coordinate of orb 1 (typically the one finger is one).
+        :param y1: The vertical coordinate of orb 1.
+        :param x2: The horizontal coordinate of orb 2.
+        :param y2: The vertical coordinate of orb 2.
+        :param move_finger: Whether to update finger location to the location of orb 2.
+        """
+        val1 = self.board[x1, y1]
+        val2 = self.board[x2, y2]
+        self.board[x1, y1] = val2
+        self.board[x2, y2] = val1
+
+        # val1 = self.enhanced[x1, y1]
+        # val2 = self.enhanced[x2, y2]
+        # self.enhanced[x1, y1] = val2
+        # self.enhanced[x2, y2] = val1
+        #
+        # val1 = self.locked[x1, y1]
+        # val2 = self.locked[x2, y2]
+        # self.locked[x1, y1] = val2
+        # self.locked[x2, y2] = val1
+
+        if move_finger:
+            self.finger[0] = x2
+            self.finger[1] = y2
+
+    @staticmethod
+    def damage(combos):
         return 0
+
+    @staticmethod
+    def random_orb(prob):
+        """
+        :param prob: A list of non-negative numbers that sum up to 1.
+        :return: A random integer in range [0, len(prob)-1] following the probability in prob.
+        """
+        random_number = random.random()
+        prob_sum = 0
+        for i in range(len(prob)):
+            prob_sum += prob[i]
+            if prob_sum >= random_number and prob[i] > 0:
+                return i
+        return len(prob)-1
 
 
 def make():
