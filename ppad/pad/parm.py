@@ -48,13 +48,15 @@ default_enemy = []  # ?
 default_finger = [0, 0]
 
 # Dictionary used for rendering.
+# First element of the tuple is letter representation.
+# Second element is color.
 default_render_dict = {-1: (' ', ''),
                        0: ('R', '\033[1;31;41m'),
                        1: ('B', '\033[1;34;44m'),
                        2: ('G', '\033[1;32;42m'),
                        3: ('L', '\033[1;33;43m'),
                        4: ('D', '\033[1;35;45m'),
-                       5: ('H', '\033[1;37;40m'),
+                       5: ('H', '\033[1;30;40m'),
                        6: ('j', '\033[1;30;16m'),
                        7: ('p', '\033[1;5;16m'),
                        8: ('m', '\033[1;90;16m'),

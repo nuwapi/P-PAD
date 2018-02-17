@@ -33,7 +33,7 @@ class Game:
                  buff=None,
                  team=parm.default_team,
                  enemy=parm.default_enemy,
-                 finger=parm.default_finger):
+                 finger=None):
 
         # Check the validity of the input parameters.
         # TODO: Add more parameter checks.
@@ -54,6 +54,8 @@ class Game:
             raise Exception('ERROR: The board should allow at least 13 orbs. Please increase board size!')
 
         # Initialize.
+        random.seed(datetime.now())
+
         # The horizontal length of the board.
         self.dim_h = dim_h
         # The vertical length of the board.
@@ -77,7 +79,10 @@ class Game:
         # Information about the enemy or enemies.
         self.enemy = enemy
         # Finger location of the board.
-        self.finger = finger
+        if finger is None:
+            self.finger = [0, 0]
+            self.finger[0] = random.randint(0,dim_h-1)
+            self.finger[1] = random.randint(0,dim_v-1)
         # The action space for this environment.
         self.action_space = player.PlayerAction()
         # The observation space for this environment.
@@ -86,7 +91,6 @@ class Game:
         # Coloring and letter scheme for rendering.
         self.render_dict = parm.default_render_dict
 
-        random.seed(datetime.now())
         self.fill_board()
 
     def step(self, action):
@@ -128,7 +132,10 @@ class Game:
             print_str = '|'
             for x in range(self.dim_h):
                 key = self.board[x, reverse_y]
-                print_str += self.render_dict[key][1] + self.render_dict[key][0] + '\033[0m' + '|'
+                if x == self.finger[0] and reverse_y == self.finger[1]:
+                    print_str += self.render_dict[key][0] + '|'
+                else:
+                    print_str += self.render_dict[key][1] + self.render_dict[key][0] + '\033[0m' + '|'
             print(print_str)
         print('+-----------+')
 
@@ -227,8 +234,8 @@ class Game:
             self.finger[0] = x2
             self.finger[1] = y2
 
-    @staticmethod
-    def damage(combos):
+    def damage(self, combos):
+        # self.team
         return 0
 
     @staticmethod
