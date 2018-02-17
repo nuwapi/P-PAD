@@ -18,14 +18,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>
 
 import ppad.pad.game as game
 
-env = game.make()
+# env = game.make()
 # env.render()
 # env.step('left')
 # env.render()
 # env.step('up')
 # env.render()
 
+env = game.make()
 env.render()
-observation, reward, done, info = env.step('pass')
-print(reward)
+observation, reward, done, info = env.step('pass', verbose=True)
 env.render()

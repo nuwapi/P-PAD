@@ -23,6 +23,7 @@ from datetime import datetime
 import ppad.pad.parm as parm
 import ppad.pad.action.player as player
 
+
 class Game:
     def __init__(self,
                  dim_h=6,
@@ -54,8 +55,8 @@ class Game:
             raise Exception('ERROR: The board should allow at least 13 orbs. Please increase board size!')
 
         # Initialize.
+        # Seed random number generator.
         random.seed(datetime.now())
-
         # The horizontal length of the board.
         self.dim_h = dim_h
         # The vertical length of the board.
@@ -78,7 +79,7 @@ class Game:
         self.team = team
         # Information about the enemy or enemies.
         self.enemy = enemy
-        # Finger location of the board.
+        # Finger location of the board. If no location is given, choose a random location.
         if finger is None:
             self.finger = [0, 0]
             self.finger[0] = random.randint(0,dim_h-1)
@@ -88,108 +89,40 @@ class Game:
         # The observation space for this environment.
         # TODO: Fill this in.
         self.observation_space = None
-        # Coloring and letter scheme for rendering.
+        # Coloring scheme and letter scheme for simple "rendering" in the terminal.
         self.render_dict = parm.default_render_dict
 
         self.fill_board()
 
-    def step(self, action):
-        reward = 0
-        done = False
-        if action == 'pass':
-            done = True
-            # A list of dictionaries representing combos.
-            all_combos = []
-            while True:
-                combos = self.cancel()
-                # print('After cancel.')
-                # self.render()
-                if len(combos) < 1:
-                    break
-                all_combos += combos
-                self.drop()
-                # print('After drop.')
-                # self.render()
-                self.fill_board()
-                # print('After fill board.')
-                # self.render()
-            reward = self.damage(all_combos)
-        else:
-            self.apply_action(action)
-
-        # TODO: In the future, we would want to output locked and enhanced as observations as well.
-        observation = self.board
-        info = 'Currently, we only provide info.'
-
-        return observation, reward, done, info
-
-    def reset(self):
-        random.seed(datetime.now())
-        self.fill_board(reset=True)
-        # Also reset finger location.
-        return self.state()
-
-    def render(self, board=None):
-        if board is None:
-            board = self.board
-
-        print('+-----------+')
-        for y in range(self.dim_v):
-            reverse_y = self.dim_v - 1 - y
-            if y > 0:
-                print('|-----------|')
-            print_str = '|'
-            for x in range(self.dim_h):
-                key = board[x, reverse_y]
-                if x == self.finger[0] and reverse_y == self.finger[1]:
-                    print_str += self.render_dict[key][0] + '|'
-                else:
-                    print_str += self.render_dict[key][1] + self.render_dict[key][0] + '\033[0m' + '|'
-            print(print_str)
-        print('+-----------+')
-
-    def state(self):
-        return self.board
-
-    def fill_board(self, reset=False):
+    def apply_action(self, action):
         """
-        The state of the board is represented by integers.
-        We do not handle locked and enhanced orbs at this stage.
-        -1 - empty
-        0  - red
-        1  - blue
-        2  - green
-        3  - light
-        4  - dark
-        5  - heal
-        6  - jammer
-        7  - poison
-        8  - mortal poison
-        9  - bomb
-        :param reset: If True, clear out the board first before filling.
-        :return:
+        Swap two orbs on all boards (specified in self.swap) given the action.
+        :param action: left, right, up, down
         """
-        for orb in np.nditer(self.board, op_flags=['readwrite']):
-            if orb == -1 or reset is True:
-                orb[...] = self.random_orb(self.skyfall)
-
-        # TODO: In the future, enhanced and locked arrays should also be updated here.
-
-    def drop(self):
-        for x in range(self.dim_h):
-            col = []
-            for y in range(self.dim_v):
-                if self.board[x, y] != -1:
-                    col.append(self.board[x, y])
-            self.board[x, :] = -1
-            for y in range(len(col)):
-                self.board[x, y] = col[y]
-        # TODO: Apply the same update to enhanced and locked orbs.
+        if action == 'left':
+            target_x = self.finger[0] - 1
+            target_y = self.finger[1]
+            if target_x >= 0:
+                self.swap(self.finger[0], self.finger[1], target_x, target_y, True)
+        elif action == 'right':
+            target_x = self.finger[0] + 1
+            target_y = self.finger[1]
+            if target_x <= self.dim_h - 1:
+                self.swap(self.finger[0], self.finger[1], target_x, target_y, True)
+        elif action == 'up':
+            target_x = self.finger[0]
+            target_y = self.finger[1] + 1
+            if target_y <= self.dim_v - 1:
+                self.swap(self.finger[0], self.finger[1], target_x, target_y, True)
+        elif action == 'down':
+            target_x = self.finger[0]
+            target_y = self.finger[1] - 1
+            if target_y >= 0:
+                self.swap(self.finger[0], self.finger[1], target_x, target_y, True)
 
     def cancel(self):
         """
-
-        :return:
+        Cancel all 3+ connected orbs and generate combos.
         """
         combos = []
         for i in range(self.dim_h):
@@ -229,13 +162,58 @@ class Game:
                         combos.append(combo)
         return combos
 
+    def damage(self, combos):
+        """
+        Calculate team damage from a list of combos.
+        :param: combos: The data structure of this list can be found in self.cancel().
+        :return: Total damage.
+        """
+        damage_tracker = {'blue': 0,
+                          'red': 0,
+                          'green': 0,
+                          'dark': 0,
+                          'light': 0}
+        # Calculate damage for each combo
+        for combo in combos:
+            color = combo['color']
+            for unit in self.team:
+                # Find units with this color as main or sub element
+                if unit['color_1'] == unit['color_2'] == color:
+                    multiplier = 1.1
+                elif unit['color_1'] == color:
+                    multiplier = 1
+                elif unit['color_2'] == color:
+                    multiplier = 0.3
+                else:
+                    continue
+                # Multiplier from number of orbs
+                multiplier *= 1 + 0.25 * (combo['N'] - 3)
+                # Multiplier from enhanced orbs
+                # Multiplier from Two-Pronged Attack (TPA)
+                # Multiplier from Void Damage Penetration (VDP)
+                # Multiplier from L-shape
+                # Multiplier from 7-combos
+                # Multiplier from Heart Box
+                # Final damage calculation for unit
+                damage_tracker[color] += multiplier * unit['atk']
+
+        # Modifiers at the color level
+        for color in damage_tracker:
+            # Multiplier from combos
+            damage_tracker[color] *= 1 + 0.25 * (len(combos) - 1)
+            # Multiplier from rows
+            # Multiplier from enemy color
+        # Final result
+        return sum(damage_tracker.values())
+
     def detect_island(self, board, island, x, y, orb_type):
         """
-
-        :param board:
-        :param island:
-        :param x:
-        :param y:
+        Recursively detect islands of conneted orbs.
+        :param board: A Numpy array with self.dim_h and self.dim_v in size.
+        :param island: A Numpy array of the same size as board, initially set to all zeroes.
+        :param x: The starting search location.
+        :param y: The starting search location.
+        :param orb_type: Search for an island of this orb type.
         """
         if board[x, y] == orb_type:
             island[x, y] = 1
@@ -252,30 +230,131 @@ class Game:
             if x-1 >= 0 and island[x-1, y] == 0:
                 self.detect_island(board, island, x-1, y, orb_type)
 
-    def apply_action(self, action):
+    def drop(self):
         """
-        :param action: left, right, up, down
+        Move all orbs vertically downwards to fill in empty spaces.
         """
-        if action == 'left':
-            target_x = self.finger[0] - 1
-            target_y = self.finger[1]
-            if target_x >= 0:
-                self.swap(self.finger[0], self.finger[1], target_x, target_y, True)
-        elif action == 'right':
-            target_x = self.finger[0] + 1
-            target_y = self.finger[1]
-            if target_x <= self.dim_h - 1:
-                self.swap(self.finger[0], self.finger[1], target_x, target_y, True)
-        elif action == 'up':
-            target_x = self.finger[0]
-            target_y = self.finger[1] + 1
-            if target_y <= self.dim_v - 1:
-                self.swap(self.finger[0], self.finger[1], target_x, target_y, True)
-        elif action == 'down':
-            target_x = self.finger[0]
-            target_y = self.finger[1] - 1
-            if target_y >= 0:
-                self.swap(self.finger[0], self.finger[1], target_x, target_y, True)
+        for x in range(self.dim_h):
+            col = []
+            for y in range(self.dim_v):
+                if self.board[x, y] != -1:
+                    col.append(self.board[x, y])
+            self.board[x, :] = -1
+            for y in range(len(col)):
+                self.board[x, y] = col[y]
+        # TODO: Apply the same update to enhanced and locked boards.
+
+    def fill_board(self, reset=False):
+        """
+        The state of the board is represented by integers.
+        We do not handle locked and enhanced orbs at this stage.
+        -1 - empty
+        0  - red
+        1  - blue
+        2  - green
+        3  - light
+        4  - dark
+        5  - heal
+        6  - jammer
+        7  - poison
+        8  - mortal poison
+        9  - bomb
+        :param reset: If True, clear out the board first before filling.
+        """
+        for orb in np.nditer(self.board, op_flags=['readwrite']):
+            if orb == -1 or reset is True:
+                orb[...] = self.random_orb(self.skyfall)
+
+        # TODO: In the future, enhanced and locked arrays should also be updated here.
+
+    def render(self, board=None):
+        """
+        Print a simple colored board to the terminal.
+        :param board: One can input any Numpy array for rendering. It uses self.board by default.
+        """
+        if board is None:
+            board = self.board
+
+        print('+-----------+')
+        for y in range(self.dim_v):
+            reverse_y = self.dim_v - 1 - y
+            if y > 0:
+                print('|-----------|')
+            print_str = '|'
+            for x in range(self.dim_h):
+                key = board[x, reverse_y]
+                if x == self.finger[0] and reverse_y == self.finger[1]:
+                    print_str += self.render_dict[key][0] + '|'
+                else:
+                    print_str += self.render_dict[key][1] + self.render_dict[key][0] + '\033[0m' + '|'
+            print(print_str)
+        print('+-----------+')
+
+    def reset(self):
+        """
+        Reset random number generator and the whole board.
+        :return: The state of the system.
+        """
+        random.seed(datetime.now())
+        self.fill_board(reset=True)
+        # Also reset finger location.
+        return self.state()
+
+    def state(self):
+        # TODO: Need to fill in this function properly.
+        return self.board
+
+    def step(self, action, verbose=False):
+        """
+        Step function comply to OpenAI Gym standard.
+        :param action: The action to take in this step.
+        :param verbose: Print intermediate board state and combos list.
+        :return: See Gym documentation for details.
+        """
+        # We don't give intermediate rewords.
+        reward = 0
+        # The finger moving episode is not over by default.
+        done = False
+        # If the agent decides to stop moving the finger.
+        if action == 'pass':
+            done = True
+            # A list of dictionaries to store combos.
+            all_combos = []
+            # Repeat the combo detection until nothing more can be canceled.
+            while True:
+                combos = self.cancel()
+                if verbose is True:
+                    print('Board after combo canceling:')
+                    self.render()
+
+                # Break out of the loop if nothing can be canceled.
+                if len(combos) < 1:
+                    break
+
+                # Add combo to combo list and skyfall.
+                all_combos += combos
+                self.drop()
+                if verbose is True:
+                    print('Board after orb drop:')
+                    self.render()
+                self.fill_board()
+                if verbose is True:
+                    print('Board after fill board:')
+                    self.render()
+
+            # Reward is the total damage calculated based on combos.
+            reward = self.damage(all_combos)
+            if verbose is True:
+                print(all_combos)
+                print('The total damange is:', reward)
+        else:
+            self.apply_action(action)
+
+        # TODO: In the future, we would want to output locked and enhanced as observations as well.
+        observation = self.board
+        info = 'Currently, we do not provide info.'
+
+        return observation, reward, done, info
 
     def swap(self, x1, y1, x2, y2, move_finger):
         """
@@ -305,48 +384,6 @@ class Game:
         if move_finger:
             self.finger[0] = x2
             self.finger[1] = y2
-
-    def damage(self, combos):
-        """
-        Calculate team damage from a list of combos.
-        """
-        damage_tracker = {'blue':0,
-                          'red': 0,
-                          'green': 0,
-                          'dark': 0,
-                          'light': 0}
-        # Calculate damage for each combo
-        for combo in combos:
-            color = combo['color']
-            for unit in self.team: 
-                # Find units with this color as main or sub element
-                if unit['color_1']==unit['color_2']==color:
-                    multiplier = 1.1
-                elif  unit['color_1']==color:
-                    multiplier = 1
-                elif unit['color_2']==color:
-                    multiplier = 0.3
-                else:
-                    continue
-                # Multiplier from number of orbs
-                multiplier *= 1+0.25*(combo['N']-3)
-                # Multiplier from enhanced orbs
-                # Multiplier from Two-Pronged Attack (TPA)
-                # Multiplier from Void Damage Penetration (VDP)
-                # Multiplier from L-shape
-                # Multiplier from 7-combos
-                # Multiplier from Heart Box
-                # Final damage calculation for unit
-                damage_tracker[color] += multiplier*unit['atk']
-        
-        # Modifiers at the color level
-        for color in damage_tracker:
-            # Multiplier from combos
-            damage_tracker[color] *= 1+0.25*(len(combos)-1)
-            # Multiplier from rows
-            # Multiplier from enemy color
-        # Final result        
-        return sum(damage_tracker.values())
 
     @staticmethod
     def random_orb(prob):
