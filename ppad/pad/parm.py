@@ -51,7 +51,43 @@ default_skyfall_locked = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 default_skyfall_enhanced = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
 # An array of 6 arrays. The first two are leaders.
-default_team = [[], []]  # ?
+default_team = [{'name': 'Leader 1',
+                 'color_1': 'dark',
+                 'color_2': 'dark',
+                 'atk': 1000,
+                 'hp': 2000,
+                 'rcv': 100},
+                {'name': 'Leader 2',
+                 'color_1': 'light',
+                 'color_2': 'light',
+                 'atk': 1000,
+                 'hp': 2000,
+                 'rcv': 100},
+                 {'name': 'Sub 1',
+                 'color_1': 'blue',
+                 'color_2': 'green',
+                 'atk': 1000,
+                 'hp': 2000,
+                 'rcv': 100},
+                 {'name': 'Sub 2',
+                 'color_1': 'green',
+                 'color_2': 'red',
+                 'atk': 1000,
+                 'hp': 2000,
+                 'rcv': 100},
+                 {'name': 'Sub 3',
+                 'color_1': 'red',
+                 'color_2': 'blue',
+                 'atk': 1000,
+                 'hp': 2000,
+                 'rcv': 100},
+                  {'name': 'Sub 4',
+                 'color_1': 'blue',
+                 'color_2': None,
+                 'atk': 1000,
+                 'hp': 2000,
+                 'rcv': 100}]
+
 
 # An array of attributes of one enemy. An array of arrays if there are more than one enemy.
 default_enemy = []  # ?
