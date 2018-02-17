@@ -102,11 +102,17 @@ class Game:
             all_combos = []
             while True:
                 combos = self.cancel()
+                # print('After cancel.')
+                # self.render()
                 if len(combos) < 1:
                     break
                 all_combos += combos
                 self.drop()
+                # print('After drop.')
+                # self.render()
                 self.fill_board()
+                # print('After fill board.')
+                # self.render()
             reward = self.damage(all_combos)
         else:
             self.apply_action(action)
@@ -123,7 +129,10 @@ class Game:
         # Also reset finger location.
         return self.state()
 
-    def render(self):
+    def render(self, board=None):
+        if board is None:
+            board = self.board
+
         print('+-----------+')
         for y in range(self.dim_v):
             reverse_y = self.dim_v - 1 - y
@@ -131,7 +140,7 @@ class Game:
                 print('|-----------|')
             print_str = '|'
             for x in range(self.dim_h):
-                key = self.board[x, reverse_y]
+                key = board[x, reverse_y]
                 if x == self.finger[0] and reverse_y == self.finger[1]:
                     print_str += self.render_dict[key][0] + '|'
                 else:
@@ -172,7 +181,7 @@ class Game:
             for y in range(self.dim_v):
                 if self.board[x, y] != -1:
                     col.append(self.board[x, y])
-                self.board[x, :] = -1
+            self.board[x, :] = -1
             for y in range(len(col)):
                 self.board[x, y] = col[y]
         # TODO: Apply the same update to enhanced and locked orbs.
@@ -196,9 +205,11 @@ class Game:
                     # 2. Prune detected island.
                     pruned_island = np.zeros((self.dim_h, self.dim_v))
                     for k in range(self.dim_h - parm.c + 1):
-                        for l in range(self.dim_v - parm.c + 1):
+                        for l in range(self.dim_v):
                             if np.sum(island[k:k+3, l]) == 3:
                                 pruned_island[k:k+3, l] = 1
+                    for k in range(self.dim_h):
+                        for l in range(self.dim_v - parm.c + 1):
                             if np.sum(island[k, l:l+3]) == 3:
                                 pruned_island[k, l:l+3] = 1
                     # 3. Save the combo and update board.
