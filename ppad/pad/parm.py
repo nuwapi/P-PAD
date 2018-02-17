@@ -16,6 +16,18 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>
 """
 
+# Human readable dictionary for orb types.
+int2english = {0: 'red',
+               1: 'blue',
+               2: 'green',
+               3: 'light',
+               4: 'dark',
+               5: 'heal',
+               6: 'jammer',
+               7: 'poison',
+               8: 'mortal poison',
+               9: 'bomb'}
+
 # The sum of all 10 skyfall rates equals to 1.
 # In order, the 10 orb types are:
 #   [red,
@@ -98,4 +110,5 @@ default_render_dict = {-1: (' ', ''),
                        8: ('m', '\033[1;90;16m'),
                        9: ('b', '\033[1;94;16m')}
 
-
+# By default, it takes at least 3 in a row/col to count as a combo. Some leaders only cancel 4.
+c = 3

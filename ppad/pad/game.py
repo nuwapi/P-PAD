@@ -102,11 +102,17 @@ class Game:
             all_combos = []
             while True:
                 combos = self.cancel()
+                # print('After cancel.')
+                # self.render()
                 if len(combos) < 1:
                     break
                 all_combos += combos
                 self.drop()
+                # print('After drop.')
+                # self.render()
                 self.fill_board()
+                # print('After fill board.')
+                # self.render()
             reward = self.damage(all_combos)
         else:
             self.apply_action(action)
@@ -123,7 +129,10 @@ class Game:
         # Also reset finger location.
         return self.state()
 
-    def render(self):
+    def render(self, board=None):
+        if board is None:
+            board = self.board
+
         print('+-----------+')
         for y in range(self.dim_v):
             reverse_y = self.dim_v - 1 - y
@@ -131,7 +140,7 @@ class Game:
                 print('|-----------|')
             print_str = '|'
             for x in range(self.dim_h):
-                key = self.board[x, reverse_y]
+                key = board[x, reverse_y]
                 if x == self.finger[0] and reverse_y == self.finger[1]:
                     print_str += self.render_dict[key][0] + '|'
                 else:
@@ -172,13 +181,76 @@ class Game:
             for y in range(self.dim_v):
                 if self.board[x, y] != -1:
                     col.append(self.board[x, y])
-                self.board[x, :] = -1
+            self.board[x, :] = -1
             for y in range(len(col)):
                 self.board[x, y] = col[y]
         # TODO: Apply the same update to enhanced and locked orbs.
 
     def cancel(self):
-        return []
+        """
+
+        :return:
+        """
+        combos = []
+        for i in range(self.dim_h):
+            for j in range(self.dim_v):
+                # If this orb has not been checked.
+                orb_type = self.board[i, j]
+                if orb_type != -1:
+                    # 1. Detect island.
+                    # Initially, the island only contains the starting orb.
+                    island = np.zeros((self.dim_h, self.dim_v))
+                    # Detect island starting from position i, j and update island array.
+                    self.detect_island(self.board, island, i, j, orb_type)
+                    # 2. Prune detected island.
+                    pruned_island = np.zeros((self.dim_h, self.dim_v))
+                    for k in range(self.dim_h - parm.c + 1):
+                        for l in range(self.dim_v):
+                            if np.sum(island[k:k+3, l]) == 3:
+                                pruned_island[k:k+3, l] = 1
+                    for k in range(self.dim_h):
+                        for l in range(self.dim_v - parm.c + 1):
+                            if np.sum(island[k, l:l+3]) == 3:
+                                pruned_island[k, l:l+3] = 1
+                    # 3. Save the combo and update board.
+                    count = np.sum(pruned_island)
+                    # If there is a combo.
+                    if count >= parm.c:
+                        # Update board.
+                        for index, element in np.ndenumerate(pruned_island):
+                            if element == 1:
+                                self.board[index] = -1
+                        # Generate combo.
+                        # TODO: Add shape detection and enhanced orb count in the future.
+                        combo = {'color': parm.int2english[orb_type],
+                                 'N': count,
+                                 'enhanced': None,
+                                 'shape': None}
+                        combos.append(combo)
+        return combos
+
+    def detect_island(self, board, island, x, y, orb_type):
+        """
+
+        :param board:
+        :param island:
+        :param x:
+        :param y:
+        """
+        if board[x, y] == orb_type:
+            island[x, y] = 1
+            # Go up.
+            if y+1 < self.dim_v and island[x, y+1] == 0:
+                self.detect_island(board, island, x, y+1, orb_type)
+            # Go down.
+            if y-1 >= 0 and island[x, y-1] == 0:
+                self.detect_island(board, island, x, y-1, orb_type)
+            # Go left.
+            if x+1 < self.dim_h and island[x+1, y] == 0:
+                self.detect_island(board, island, x+1, y, orb_type)
+            # Go right.
+            if x-1 >= 0 and island[x-1, y] == 0:
+                self.detect_island(board, island, x-1, y, orb_type)
 
     def apply_action(self, action):
         """
@@ -224,7 +296,7 @@ class Game:
         # val2 = self.enhanced[x2, y2]
         # self.enhanced[x1, y1] = val2
         # self.enhanced[x2, y2] = val1
-        #
+
         # val1 = self.locked[x1, y1]
         # val2 = self.locked[x2, y2]
         # self.locked[x1, y1] = val2
