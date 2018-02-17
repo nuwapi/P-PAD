@@ -235,8 +235,46 @@ class Game:
             self.finger[1] = y2
 
     def damage(self, combos):
-        # self.team
-        return 0
+        """
+        Calculate team damage from a list of combos.
+        """
+        damage_tracker = {'blue':0,
+                          'red': 0,
+                          'green': 0,
+                          'dark': 0,
+                          'light': 0}
+        # Calculate damage for each combo
+        for combo in combos:
+            color = combo['color']
+            for unit in self.team: 
+                # Find units with this color as main or sub element
+                if unit['color_1']==unit['color_2']==color:
+                    multiplier = 1.1
+                elif  unit['color_1']==color:
+                    multiplier = 1
+                elif unit['color_2']==color:
+                    multiplier = 0.3
+                else:
+                    continue
+                # Multiplier from number of orbs
+                multiplier *= 1+0.25*(combo['N']-3)
+                # Multiplier from enhanced orbs
+                # Multiplier from Two-Pronged Attack (TPA)
+                # Multiplier from Void Damage Penetration (VDP)
+                # Multiplier from L-shape
+                # Multiplier from 7-combos
+                # Multiplier from Heart Box
+                # Final damage calculation for unit
+                damage_tracker[color] += multiplier*unit['atk']
+        
+        # Modifiers at the color level
+        for color in damage_tracker:
+            # Multiplier from combos
+            damage_tracker[color] *= 1+0.25*(len(combos)-1)
+            # Multiplier from rows
+            # Multiplier from enemy color
+        # Final result        
+        return sum(damage_tracker.values())
 
     @staticmethod
     def random_orb(prob):
