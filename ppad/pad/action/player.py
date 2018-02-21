@@ -16,10 +16,16 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>
 """
 
+import random
+
 
 class PlayerAction:
     # List of player actions.
     player_action = ['up', 'down', 'left', 'right', 'pass']
 
-    def sample(self, type='random'):
-        pass
+    def sample(self, type='random', include_pass=False):
+        num_action = len(self.player_action) - 1
+        if include_pass:
+            num_action += 1
+
+        return self.player_action[random.randint(0, num_action-1)]
