@@ -388,10 +388,10 @@ class Game:
             self.finger[1] = y2
 
     @staticmethod
-    def episode2gif(episode, actions, starting_position, path):
+    def episode2gif(boards, actions, starting_position, path):
         """
         Note: One needs to have PYTHONPATH defined to be the root directory of this repo.
-        :param episode: A list of Numpy arrays representing the board at each step of an episode.
+        :param boards: A list of Numpy arrays representing the board at each step of an episode.
         :param actions: A list of actions (in English). actions[k] changes episode[k] to episode[k+1].
         :param starting_position: The finger [x, y] position at the start, i.e. where the action starts.
         :param path: The location where intermediate pngs and the final gif are stored.
@@ -409,10 +409,11 @@ class Game:
                 asset_path + 'bomb.png']
         bg = [asset_path + 'bg1.png', asset_path + 'bg2.png']
         finger = starting_position
-        dim_h = episode[0].shape[0]
-        dim_v = episode[0].shape[1]
+        dim_h = boards[0].shape[0]
+        dim_v = boards[0].shape[1]
         # The length of the square image of the orbs is 100 px.
         edge = 100
+        shrink = 3
         all_frames = []
 
         def synthesize_frame(frame_i, action_i, finger_now, shift):
@@ -441,7 +442,7 @@ class Game:
             # Generate orbs on the background that are not being moved.
             for i in range(dim_h):
                 for j in range(dim_v):
-                    foreground = Image.open(orbs[episode[frame_i].item((i, j))])
+                    foreground = Image.open(orbs[boards[frame_i].item((i, j))])
                     if i == finger_now[0] and j == finger_now[1]:
                         pass
                     elif i == finger_destination[0] and j == finger_destination[1]:
@@ -452,20 +453,20 @@ class Game:
             # Generate the orbs that are being moved.
             i = finger_destination[0]
             j = finger_destination[1]
-            foreground = Image.open(orbs[episode[frame_i][i, j]])
+            foreground = Image.open(orbs[boards[frame_i][i, j]])
             this_frame.paste(foreground, (i*edge-move[0], j*edge-move[1], (i+1)*edge-move[0], (j+1)*edge-move[1]),
                              foreground)
             i = finger_now[0]
             j = finger_now[1]
-            foreground = Image.open(orbs[episode[frame_i][i, j]])
+            foreground = Image.open(orbs[boards[frame_i][i, j]])
             this_frame.paste(foreground, (i*edge+move[0], j*edge+move[1], (i+1)*edge+move[0], (j+1)*edge+move[1]),
                              foreground)
-
+            this_frame  = this_frame.resize((int(dim_h*edge/shrink), int(dim_v*edge/shrink)), Image.ANTIALIAS)
             all_frames.append(this_frame)
 
         # Generate the whole animation.
-        for index in range(len(episode)):
-            if index == len(episode) - 1:
+        for index in range(len(boards)):
+            if index == len(boards) - 1:
                 synthesize_frame(index, 0, finger, 0)
             else:
                 synthesize_frame(index, index, finger, 0)
@@ -482,8 +483,8 @@ class Game:
                 elif actions[index] == 'down' and finger[1]-1 >= 0:
                     finger[1] -= 1
 
-        animation = Image.new("RGB", (dim_h * edge, dim_v * edge))
-        animation.save(path, save_all=True, append_images=all_frames, duration=2)
+        animation = Image.new("RGB", (int(dim_h * edge / shrink), int(dim_v * edge / shrink)))
+        animation.save(path, save_all=True, append_images=all_frames, duration=0, loop=100, optimize=True)
 
     @staticmethod
     def random_orb(prob):
