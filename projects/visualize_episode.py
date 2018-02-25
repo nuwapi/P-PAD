@@ -16,7 +16,6 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>
 """
 
-import numpy as np
 import os
 
 import ppad
@@ -24,8 +23,8 @@ import ppad
 env = ppad.make()
 observation = env.reset()
 
-starting_board = np.copy(observation[0])
-starting_finger = np.copy(observation[1])
+starting_board = observation[0]
+starting_finger = observation[1]
 boards = []
 actions = []
 boards.append(starting_board)
@@ -33,7 +32,7 @@ boards.append(starting_board)
 for i in range(20):
     action = env.action_space.sample()
     observation, reward, done, info = env.step(action)
-    boards.append(np.copy(observation[0]))
+    boards.append(observation[0])
     actions.append(action)
 
 env.episode2gif(boards, actions, starting_finger, os.environ['PYTHONPATH']+'/assets/sample.gif')

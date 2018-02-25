@@ -304,7 +304,7 @@ class Game:
 
     def state(self):
         # TODO: Need to fill in this function properly.
-        return self.board, self.finger
+        return np.copy(self.board), np.copy(self.finger)
 
     def step(self, action, verbose=False):
         """
@@ -355,7 +355,7 @@ class Game:
         # TODO: In the future, we would want to output locked and enhanced as observations as well.
         info = 'Currently, we do not provide info.'
 
-        return (self.board, self.finger), reward, done, info
+        return (np.copy(self.board), np.copy(self.finger)), reward, done, info
 
     def swap(self, x1, y1, x2, y2, move_finger):
         """
