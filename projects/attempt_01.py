@@ -29,46 +29,26 @@ episodes = 1000
 # even be higher than this.
 steps = 200
 
-samples = []
-
 env = ppad.make()
 agent = ppad.agent01()
 
 # 2. Sampling.
-env.reset()
-for i in range(episodes):
-    observations = []
-    rewards = []
+for _ in range(episodes):
+    env.reset()
     for j in range(steps):
         action = env.action_space.sample()
         if j >= steps-1:
             action = 'pass'
-        observation, reward, done, info = env.step(action)
-        observations.append(observation)
-        rewards.append(reward)
+        env.step(action)
 
-    ppad.discount(rewards)
-    samples.append([observations, rewards])
+    ppad.discount(env.rewards)
 
-# 3. Learning.
-agent.learn(samples)
+    # 3. Learning.
+    agent.learn(observations=env.observations, rewards=env.rewards)
 
 # 4. Predict and visualization.
 observation = env.reset()
-
-starting_board = observation[0]
-starting_finger = observation[1]
-boards = []
-actions = []
-boards.append(starting_board)
-
-current_state = (starting_board, starting_finger)
-for _ in range(20):
-    action = agent.predict(current_state)
-    observation, reward, done, info = env.step(action)
-    boards.append(observation[0])
-    actions.append(action)
-
-    current_state = observation
-
-env.episode2gif(boards, actions, starting_finger, os.environ['PYTHONPATH']+'/assets/sample.gif')
+for _ in range(100):
+    action = agent.predict(observation)
+    observation, _, _, _ = env.step(action=action)
+env.episode2gif(path=os.environ['PYTHONPATH']+'/projects/agent_01.gif')

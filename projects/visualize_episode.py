@@ -21,18 +21,8 @@ import os
 import ppad
 
 env = ppad.make()
-observation = env.reset()
 
-starting_board = observation[0]
-starting_finger = observation[1]
-boards = []
-actions = []
-boards.append(starting_board)
+for _ in range(100):
+    env.step(action=env.action_space.sample())
 
-for i in range(20):
-    action = env.action_space.sample()
-    observation, reward, done, info = env.step(action)
-    boards.append(observation[0])
-    actions.append(action)
-
-env.episode2gif(boards, actions, starting_finger, os.environ['PYTHONPATH']+'/assets/sample.gif')
+env.episode2gif(path=os.environ['PYTHONPATH']+'/projects/random_sampling.gif')
