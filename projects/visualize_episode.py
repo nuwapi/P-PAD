@@ -19,19 +19,21 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>
 import numpy as np
 import os
 
-import ppad.pad.game as game
+import ppad
 
-env = game.make()
-board, finger = env.state()
+env = ppad.make()
+observation = env.reset()
+
+starting_board = np.copy(observation[0])
+starting_finger = np.copy(observation[1])
 boards = []
 actions = []
-starting_finger = list(finger)
-boards.append(np.copy(board))
+boards.append(starting_board)
 
 for i in range(20):
     action = env.action_space.sample()
-    env.step(action)
-    boards.append(np.copy(env.state()[0]))
+    observation, reward, done, info = env.step(action)
+    boards.append(np.copy(observation[0]))
     actions.append(action)
 
-env.episode2gif(boards, actions, starting_finger, os.environ['PYTHONPATH']+'/asset/sample.gif')
+env.episode2gif(boards, actions, starting_finger, os.environ['PYTHONPATH']+'/assets/sample.gif')

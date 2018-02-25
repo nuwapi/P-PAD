@@ -23,7 +23,7 @@ from PIL import Image
 import random
 
 import ppad.pad.parm as parm
-import ppad.pad.action.player as player
+import ppad.pad.player as player
 
 
 class Game:
@@ -83,7 +83,7 @@ class Game:
         self.enemy = enemy
         # Finger location of the board. If no location is given, choose a random location.
         if finger is None:
-            self.finger = [0, 0]
+            self.finger = np.zeros(2, dtype=int)
             self.finger[0] = random.randint(0, dim_h-1)
             self.finger[1] = random.randint(0, dim_v-1)
         # The action space for this environment.
@@ -353,10 +353,9 @@ class Game:
             self.apply_action(action)
 
         # TODO: In the future, we would want to output locked and enhanced as observations as well.
-        observation = self.board
         info = 'Currently, we do not provide info.'
 
-        return observation, reward, done, info
+        return (self.board, self.finger), reward, done, info
 
     def swap(self, x1, y1, x2, y2, move_finger):
         """
@@ -396,7 +395,7 @@ class Game:
         :param starting_position: The finger [x, y] position at the start, i.e. where the action starts.
         :param path: The location where intermediate pngs and the final gif are stored.
         """
-        asset_path = os.environ['PYTHONPATH'] + '/asset/'
+        asset_path = os.environ['PYTHONPATH'] + '/assets/'
         orbs = [asset_path + 'red.png',
                 asset_path + 'blue.png',
                 asset_path + 'green.png',
