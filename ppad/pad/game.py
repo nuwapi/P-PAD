@@ -95,6 +95,7 @@ class Game:
         # Used to store the game state sequence for the current episode.
         self.boards = []
         self.fingers = []
+        self.observations = []
         self.actions = []
         self.rewards = []
 
@@ -111,21 +112,30 @@ class Game:
             target_y = self.finger[1]
             if target_x >= 0:
                 self.swap(self.finger[0], self.finger[1], target_x, target_y, True)
+            else:
+                return 'rejected'
         elif action == 'right':
             target_x = self.finger[0] + 1
             target_y = self.finger[1]
             if target_x <= self.dim_h - 1:
                 self.swap(self.finger[0], self.finger[1], target_x, target_y, True)
+            else:
+                return 'rejected'
         elif action == 'up':
             target_x = self.finger[0]
             target_y = self.finger[1] + 1
             if target_y <= self.dim_v - 1:
                 self.swap(self.finger[0], self.finger[1], target_x, target_y, True)
+            else:
+                return 'rejected'
         elif action == 'down':
             target_x = self.finger[0]
             target_y = self.finger[1] - 1
             if target_y >= 0:
                 self.swap(self.finger[0], self.finger[1], target_x, target_y, True)
+            else:
+                return 'rejected'
+        return 'accepted'
 
     def cancel(self):
         """
@@ -397,20 +407,27 @@ class Game:
         :return: The state of the system.
         """
         # Delete the complete record of the episode.
+        del self.observations
         del self.boards
         del self.fingers
         del self.actions
         del self.rewards
 
+        self.observations = []
         self.boards = []
         self.fingers = []
         self.actions = []
         self.rewards = []
+        self.action_space.previous_action = None
 
         # Reset game state.
         random.seed(datetime.now())
         if board is None:
-            self.fill_board(reset=True)
+            while True:
+                self.fill_board(reset=True)
+                combos = self.cancel()
+                if len(combos) == 0:
+                    break
         else:
             self.board = np.copy(board)
         if finger is None:
@@ -420,14 +437,16 @@ class Game:
             self.finger = np.copy(finger)
 
         # Append starting state to the game record.
-        self.boards.append(np.copy(self.board))
-        self.fingers.append(np.copy(self.finger))
+        self.observations.append((np.copy(self.board), np.copy(self.finger)))
+
+        self.boards.append(self.observations[-1][0])
+        self.fingers.append(self.observations[-1][1])
 
         return self.state()
 
     def state(self):
         # TODO: Need to fill in this function properly.
-        return np.copy(self.board), np.copy(self.finger)
+        return self.boards[-1], self.fingers[-1]
 
     def step(self, action, verbose=False):
         """
@@ -473,18 +492,21 @@ class Game:
                 print(all_combos)
                 print('The total damange is:', reward)
         else:
-            self.apply_action(action)
+            comment = self.apply_action(action)
+            if comment == 'accepted':
+                self.action_space.previous_action = action
 
         # TODO: In the future, we would want to output locked and enhanced as observations as well.
         info = 'Currently, we do not provide info.'
 
         # Save current state to the record.
-        self.boards.append(np.copy(self.board))
-        self.fingers.append(np.copy(self.finger))
+        self.observations.append((np.copy(self.board), np.copy(self.finger)))
+        self.boards.append(self.observations[-1][0])
+        self.fingers.append(self.observations[-1][1])
         self.actions.append(action)
         self.rewards.append(reward)
 
-        return (np.copy(self.board), np.copy(self.finger)), reward, done, info
+        return (self.boards[-1], self.fingers[-1]), reward, done, info
 
     def swap(self, x1, y1, x2, y2, move_finger):
         """
@@ -530,5 +552,5 @@ class Game:
         return len(prob)-1
 
 
-def make():
+def pad():
     return Game()

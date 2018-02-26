@@ -20,7 +20,7 @@ import os
 
 import ppad
 
-env = ppad.make()
+env = ppad.pad()
 
 for _ in range(100):
     env.step(action=env.action_space.sample())

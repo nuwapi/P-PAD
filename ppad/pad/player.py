@@ -23,9 +23,17 @@ class PlayerAction:
     # List of player actions.
     player_action = ['up', 'down', 'left', 'right', 'pass']
 
+    def __init__(self):
+        self.previous_action = None
+
     def sample(self, type='random', include_pass=False):
         num_action = len(self.player_action) - 1
         if include_pass:
             num_action += 1
 
-        return self.player_action[random.randint(0, num_action-1)]
+        while True:
+            current_action = self.player_action[random.randint(0, num_action-1)]
+            current_set = {current_action, self.previous_action}
+            # Do not take the exact reverse of the previous action.
+            if current_set != {'left', 'right'} and current_set != {'up', 'down'}:
+                return current_action

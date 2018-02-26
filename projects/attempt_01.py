@@ -29,26 +29,43 @@ episodes = 1000
 # even be higher than this.
 steps = 200
 
-env = ppad.make()
+episodes = 50
+steps = 10
+
+env = ppad.pad()
 agent = ppad.agent01()
+
+observations_list = []
+actions_list = []
+discounted_rewards_list = []
 
 # 2. Sampling.
 for _ in range(episodes):
     env.reset()
-    for j in range(steps):
+
+    for _ in range(steps):
         action = env.action_space.sample()
-        if j >= steps-1:
-            action = 'pass'
         env.step(action)
+    env.step('pass')
+    discounted_rewards = ppad.discount(rewards=env.rewards, gamma=0.9)
 
-    ppad.discount(env.rewards)
+    # Keep the episode if there was any combo.
+    if discounted_rewards[-1] > 0:
+        observations_list.append(list(env.observations[:-2]))  # Don't need to save the end state.
+        actions_list.append(list(env.actions[:-1]))            # Don't need to store 'pass'.
+        discounted_rewards_list.append(list(discounted_rewards[:-1]))
 
-    # 3. Learning.
-    agent.learn(observations=env.observations, rewards=env.rewards)
+# 3. Learning.
+agent.learn(observations=observations_list,
+            actions=actions_list,
+            rewards=discounted_rewards_list,
+            epochs=1)
 
 # 4. Predict and visualization.
 observation = env.reset()
 for _ in range(100):
-    action = agent.predict(observation)
+    action = agent.action(observation)
     observation, _, _, _ = env.step(action=action)
+
+print(env.actions)
 env.episode2gif(path=os.environ['PYTHONPATH']+'/projects/agent_01.gif')
