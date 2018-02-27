@@ -16,6 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>
 """
 
+import numpy as np
 import os
 
 import ppad
@@ -27,9 +28,6 @@ episodes = 1000
 # On average it takes 80+ steps to solve the board. We set the number of steps
 # per episode to 200 because we do random sampling. This number should probably
 # even be higher than this.
-steps = 200
-
-episodes = 50
 steps = 10
 
 env = ppad.pad()
@@ -47,7 +45,7 @@ for _ in range(episodes):
         action = env.action_space.sample()
         env.step(action)
     env.step('pass')
-    discounted_rewards = ppad.discount(rewards=env.rewards, gamma=0.9)
+    discounted_rewards = ppad.discount(rewards=env.rewards, gamma=0.9, norm=True)
 
     # Keep the episode if there was any combo.
     if discounted_rewards[-1] > 0:
@@ -62,7 +60,7 @@ agent.learn(observations=observations_list,
             epochs=1)
 
 # 4. Predict and visualization.
-observation = env.reset()
+observation = env.reset(finger=np.array([2, 2]))
 for _ in range(100):
     action = agent.action(observation)
     observation, _, _, _ = env.step(action=action)

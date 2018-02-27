@@ -66,7 +66,7 @@ class Agent01:
             yp = self.model.predict(x1)
             # For the actions that were not chosen, assign their reward value to what the neural net predicts.
             # Effectively, the neural net doesn't learn from un-chosen actions.
-            y1[y1 == np.nan] = yp[y1 == np.nan]
+            y1[0][np.isnan(y1[0])] = yp[0][np.isnan(y1[0])]
 
             self.model.fit(x=x1,
                            y=y1,
@@ -126,6 +126,7 @@ class Agent01:
         if actions is not None and rewards is not None:
             # Assuming all episodes have the same number of steps.
             y = np.zeros((len(actions) * len(actions[0]), 5))
+            y[:] = np.nan
             counter = 0
             # Looping through episodes.
             for i in range(len(actions)):
