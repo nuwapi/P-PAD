@@ -30,7 +30,7 @@ episodes = 1000
 # even be higher than this.
 steps = 10
 
-env = ppad.pad()
+env = ppad.PAD()
 agent = ppad.agent01()
 
 observations_list = []
@@ -66,4 +66,4 @@ for _ in range(100):
     observation, _, _, _ = env.step(action=action)
 
 print(env.actions)
-env.episode2gif(path=os.environ['PYTHONPATH']+'/projects/agent_01.gif')
+env.episode2gif(path=os.environ['PYTHONPATH']+'/visualizations/agent01.gif')

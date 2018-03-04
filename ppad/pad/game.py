@@ -26,7 +26,7 @@ import ppad.pad.parm as parm
 import ppad.pad.player as player
 
 
-class Game:
+class PAD:
     def __init__(self,
                  dim_h=6,
                  dim_v=5,
@@ -261,10 +261,12 @@ class Game:
                 self.board[x, y] = col[y]
         # TODO: Apply the same update to enhanced and locked boards.
 
-    def episode2gif(self, path):
+    def episode2gif(self, path, shrink=3, ext='gif'):
         """
         Note: One needs to have PYTHONPATH defined to be the root directory of this repo.
         :param path: The location where intermediate pngs and the final gif are stored.
+        :param shrink: Shrink the output image by this many times along each dimention.
+        :param ext: The type of image to generate, either gif or png. If png is chosen, only render the first frame.
         """
         asset_path = os.environ['PYTHONPATH'] + '/assets/'
         orbs = [asset_path + 'red.png',
@@ -283,7 +285,6 @@ class Game:
         dim_v = self.dim_v
         # The length of the square image of the orbs is 100 px.
         edge = 100
-        shrink = 3
         all_frames = []
 
         def synthesize_frame(frame_i, action_i, finger_now, shift):
@@ -291,7 +292,9 @@ class Game:
 
             move = [0, 0]
             finger_destination = list(finger_now)
-            if self.actions[action_i] == 'left' and finger_now[0]-1 >= 0:
+            if len(self.actions) == 0:
+                pass
+            elif self.actions[action_i] == 'left' and finger_now[0]-1 >= 0:
                 move[0] = int(-shift*edge)
                 finger_destination[0] -= 1
             elif self.actions[action_i] == 'right' and finger_now[0]+1 < dim_h:
@@ -353,7 +356,10 @@ class Game:
                     finger[1] -= 1
 
         animation = Image.new("RGB", (int(dim_h * edge / shrink), int(dim_v * edge / shrink)))
-        animation.save(path, save_all=True, append_images=all_frames, duration=0, loop=100, optimize=True)
+        if ext == 'gif':
+            animation.save(path, save_all=True, append_images=all_frames, duration=0, loop=100, optimize=True)
+        elif ext == 'png':
+            all_frames[0].save(path)
 
     def fill_board(self, reset=False):
         """
@@ -550,7 +556,3 @@ class Game:
             if prob_sum >= random_number and prob[i] > 0:
                 return i
         return len(prob)-1
-
-
-def pad():
-    return Game()
