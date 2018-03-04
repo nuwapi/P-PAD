@@ -38,9 +38,9 @@ pb2 = np.array([[0, 0, 5, 0, 4],
 
 def main():
     env = ppad.PAD(board=pb1)
-    env.episode2gif(path=os.environ['PYTHONPATH']+'/visualizations/perfect_board1.png', shrink=5, ext='png')
+    env.episode2gif(path=os.environ['PYTHONPATH']+'/visualizations/perfect_board1.png', shrink=6, ext='png')
     env = ppad.PAD(board=pb2)
-    env.episode2gif(path=os.environ['PYTHONPATH']+'/visualizations/perfect_board2.png', shrink=5, ext='png')
+    env.episode2gif(path=os.environ['PYTHONPATH']+'/visualizations/perfect_board2.png', shrink=6, ext='png')
 
 
 if __name__ == "__main__":

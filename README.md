@@ -11,5 +11,6 @@ The project is still evolving but currently contains the following components:
 
 ### Generating training data from "perfect boards"
 Example of perfect boards:
+
 ![Perfect board 1](https://github.com/nuwapi/P-PAD/blob/master/visualizations/perfect_board1.png)
 ![Perfect board 2](https://github.com/nuwapi/P-PAD/blob/master/visualizations/perfect_board2.png)
