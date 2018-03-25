@@ -152,3 +152,7 @@ class Agent01:
 
 def agent01():
     return Agent01()
+
+    # Smart dataa example
+    # observations, actions, rewards = smartdata(trajperboard=1, permutationperboard=10, stepspertraj=100)
+    # stepspertraj = -1 means until no combo exists.

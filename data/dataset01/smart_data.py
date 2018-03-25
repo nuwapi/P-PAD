@@ -16,7 +16,6 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>
 """
 
-from ppad.agent.agent01 import agent01
-from ppad.agent.utils import discount
-from ppad.pad.game import PAD
-from data.dataset01.smart_data import smartdata
+
+def smartdata():
+    pass
