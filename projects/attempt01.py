@@ -28,7 +28,7 @@ episodes = 1000
 # On average it takes 80+ steps to solve the board. We set the number of steps
 # per episode to 200 because we do random sampling. This number should probably
 # even be higher than this.
-steps = 10
+steps = 100
 
 env = ppad.PAD()
 agent = ppad.agent01()
