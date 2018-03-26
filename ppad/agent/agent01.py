@@ -22,12 +22,9 @@ import numpy as np
 
 
 class Agent01:
-    def __init__(self):
+    def __init__(self, num_filters=8, kernel_len=3, dense_units=32):
         # Basic parameters.
-        num_filters = 8
-        kernel_len = 3
         input_shape = (6, 5, 7)  # 6 by 5 board with 7 channels (5 colors plus heal and finger position).
-        dense_units = 32
         num_classes = 5  # left, right, up, down and pass.
 
         # Initialize model.
@@ -45,6 +42,9 @@ class Agent01:
         self.model.add(Dense(units=dense_units,
                              activation='relu',
                              kernel_initializer=keras.initializers.RandomNormal()))
+        self.model.add(Dense(units=dense_units,
+                             activation='relu',
+                             kernel_initializer=keras.initializers.RandomNormal()))
         self.model.add(Dense(units=num_classes,
                              activation='softmax',
                              kernel_initializer=keras.initializers.RandomNormal()))
@@ -59,7 +59,9 @@ class Agent01:
         x1 = np.zeros((1, 6, 5, 7))
         y1 = np.zeros((1, 5))
 
-        # For each state-action pair.
+        # TODO: Tinker with batch size.
+        
+        # For each state-action pair. 
         for i in range(len(x)):
             x1[0] = x[i]
             y1[0] = y[i]
