@@ -45,13 +45,14 @@ for _ in range(episodes):
         action = env.action_space.sample()
         env.step(action)
     env.step('pass')
-    discounted_rewards = ppad.discount(rewards=env.rewards, gamma=0.9, norm=True)
+    env.rewards
 
     # Keep the episode if there was any combo.
-    if discounted_rewards[-1] > 0:
-        observations_list.append(list(env.observations[:-2]))  # Don't need to save the end state.
-        actions_list.append(list(env.actions[:-1]))            # Don't need to store 'pass'.
-        discounted_rewards_list.append(list(discounted_rewards[:-1]))
+    if env.rewards[-1] > 0:
+        discounted_rewards = ppad.discount(rewards=env.rewards, gamma=0.9)
+        observations_list.append(list(env.observations[:-1]))  # Don't need to save the end state.
+        actions_list.append(list(env.actions))
+        discounted_rewards_list.append(list(discounted_rewards))
 
 # 3. Learning.
 agent.learn(observations=observations_list,

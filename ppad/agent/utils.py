@@ -1,7 +1,7 @@
 """
 P-PAD
 Copyright (C) 2018 NWP, CP
-
+s
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
@@ -19,12 +19,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>
 import numpy as np
 
 
-def discount(rewards, gamma, norm=True):
+def discount(rewards, gamma, norm=False, log10=True):
     """
     Discount rewards.
     :param rewards: Raw rewards.
     :param gamma: Discount rate.
     :param norm: Normalize the discounted rewards or not.
+    :param log10: Take log based 10 of rewards.
     :return: Discounted rewards.
     """
     discounted_rewards = np.zeros_like(rewards)
@@ -40,6 +41,10 @@ def discount(rewards, gamma, norm=True):
         std = np.std(discounted_rewards)
         if std > 0:
             discounted_rewards = (discounted_rewards - mean) / std
+    
+    # Or, if we want to take the log of rewards
+    if log10:
+        discounted_rewards = np.log10(discounted_rewards)
 
     return discounted_rewards
 
