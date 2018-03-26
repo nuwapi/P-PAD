@@ -22,7 +22,7 @@ import os
 from PIL import Image
 import random
 
-import ppad.pad.parm as parm
+import ppad.pad.parameters as parameters
 import ppad.pad.player as player
 
 
@@ -30,12 +30,12 @@ class PAD:
     def __init__(self,
                  dim_h=6,
                  dim_v=5,
-                 skyfall=parm.default_skyfall,
-                 skyfall_locked=parm.default_skyfall_locked,
-                 skyfall_enhanced=parm.default_skyfall_enhanced,
+                 skyfall=parameters.default_skyfall,
+                 skyfall_locked=parameters.default_skyfall_locked,
+                 skyfall_enhanced=parameters.default_skyfall_enhanced,
                  buff=None,
-                 team=parm.default_team,
-                 enemy=parm.default_enemy,
+                 team=parameters.default_team,
+                 enemy=parameters.default_enemy,
                  board=None,
                  finger=None):
 
@@ -90,7 +90,7 @@ class PAD:
         # TODO: Fill this in.
         self.observation_space = None
         # Coloring scheme and letter scheme for simple "rendering" in the terminal.
-        self.render_dict = parm.default_render_dict
+        self.render_dict = parameters.default_render_dict
 
         # The following five variables are used to store the game state sequence for the current episode.
         # List of dim_h by dim_v numpy arrays.
@@ -159,25 +159,25 @@ class PAD:
                     self.detect_island(self.board, island, i, j, orb_type)
                     # 2. Prune detected island.
                     pruned_island = np.zeros((self.dim_h, self.dim_v))
-                    for k in range(self.dim_h - parm.c + 1):
+                    for k in range(self.dim_h - parameters.c + 1):
                         for l in range(self.dim_v):
                             if np.sum(island[k:k+3, l]) == 3:
                                 pruned_island[k:k+3, l] = 1
                     for k in range(self.dim_h):
-                        for l in range(self.dim_v - parm.c + 1):
+                        for l in range(self.dim_v - parameters.c + 1):
                             if np.sum(island[k, l:l+3]) == 3:
                                 pruned_island[k, l:l+3] = 1
                     # 3. Save the combo and update board.
                     count = np.sum(pruned_island)
                     # If there is a combo.
-                    if count >= parm.c:
+                    if count >= parameters.c:
                         # Update board.
                         for index, element in np.ndenumerate(pruned_island):
                             if element == 1:
                                 self.board[index] = -1
                         # Generate combo.
                         # TODO: Add shape detection and enhanced orb count in the future.
-                        combo = {'color': parm.int2english[orb_type],
+                        combo = {'color': parameters.int2english[orb_type],
                                  'N': count,
                                  'enhanced': None,
                                  'shape': None}
