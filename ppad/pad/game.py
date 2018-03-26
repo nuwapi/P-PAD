@@ -92,11 +92,16 @@ class PAD:
         # Coloring scheme and letter scheme for simple "rendering" in the terminal.
         self.render_dict = parm.default_render_dict
 
-        # Used to store the game state sequence for the current episode.
+        # The following five variables are used to store the game state sequence for the current episode.
+        # List of dim_h by dim_v numpy arrays.
         self.boards = []
+        # List of 2 by 1 numpy arrays.
         self.fingers = []
+        # List of (board, finger) tuples. See above for board and finger definitions.
         self.observations = []
+        # List of integers.
         self.actions = []
+        # List of floats.
         self.rewards = []
 
         # Initialize game state.
@@ -263,12 +268,12 @@ class PAD:
 
     def episode2gif(self, path, shrink=3, ext='gif'):
         """
-        Note: One needs to have PYTHONPATH defined to be the root directory of this repo.
+        Note: One needs to have PPADPATH defined to be the root directory (P-PAD) of this repo.
         :param path: The location where intermediate pngs and the final gif are stored.
         :param shrink: Shrink the output image by this many times along each dimention.
         :param ext: The type of image to generate, either gif or png. If png is chosen, only render the first frame.
         """
-        asset_path = os.environ['PYTHONPATH'] + '/assets/'
+        asset_path = os.environ['PPADPATH'] + '/ppad/assets/'
         orbs = [asset_path + 'red.png',
                 asset_path + 'blue.png',
                 asset_path + 'green.png',
