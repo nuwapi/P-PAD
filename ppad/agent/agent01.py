@@ -22,7 +22,8 @@ import numpy as np
 
 
 class Agent01:
-    def __init__(self, num_filters=8, kernel_len=3, dense_units=32):
+    def __init__(self, num_filters=32, kernel_len=3, dense_units=64,
+                 learning_rate = 0.01):
         # Basic parameters.
         input_shape = (6, 5, 7)  # 6 by 5 board with 7 channels (5 colors plus heal and finger position).
         num_classes = 5  # left, right, up, down and pass.
@@ -49,32 +50,59 @@ class Agent01:
                              activation='softmax',
                              kernel_initializer=keras.initializers.RandomNormal()))
         self.model.compile(loss=keras.losses.categorical_crossentropy,
-                           optimizer=keras.optimizers.Adam(),
+                           optimizer=keras.optimizers.Adam(lr=learning_rate),
                            metrics=['accuracy'])
 
-    def learn(self, observations, actions, rewards, epochs, batch_size=1):
-        # Numpy array for all samples.
+    def learn(self, observations, actions, rewards, iterations, batch_size=32, 
+              experience_replay=True):
+        ## Pre-processing
+        # Convert inputs to numpy arrays to NN training.
         x, y = self.convert_input(observations, actions, rewards)
-        # Numpy array for one sample.
-        x1 = np.zeros((1, 6, 5, 7))
-        y1 = np.zeros((1, 5))
-
-        # TODO: Tinker with batch size.
         
-        # For each state-action pair. 
-        for i in range(len(x)):
-            x1[0] = x[i]
-            y1[0] = y[i]
-            yp = self.model.predict(x1)
-            # For the actions that were not chosen, assign their reward value to what the neural net predicts.
-            # Effectively, the neural net doesn't learn from un-chosen actions.
-            y1[0][np.isnan(y1[0])] = yp[0][np.isnan(y1[0])]
-
-            self.model.fit(x=x1,
-                           y=y1,
-                           batch_size=batch_size,
-                           epochs=epochs,
-                           verbose=1)
+        # Train using all samples one at a time.
+        if not experience_replay:
+            for _ in range(iterations):
+                # Numpy array for one sample.
+                x1 = np.zeros((1, 6, 5, 7))
+                y1 = np.zeros((1, 5))
+                    
+                # For each state-action pair. 
+                for i in range(len(x)):
+                    x1[0] = x[i]
+                    y1[0] = y[i]
+                    yp = self.model.predict(x1)
+                    # For the actions that were not chosen, assign their reward value to what the neural net predicts.
+                    # Effectively, the neural net doesn't learn from un-chosen actions.
+                    y1[0][np.isnan(y1[0])] = yp[0][np.isnan(y1[0])]
+        
+                    self.model.fit(x=x1,
+                                   y=y1,
+                                   batch_size=batch_size,
+                                   verbose=1)
+        
+        # Train using batches of random samples from all trajectories.
+        else:
+            # Initialize arrays for batch data.
+            x_batch = np.zeros((batch_size, 6, 5, 7))
+            y_batch = np.zeros((batch_size, 5))
+            
+            # Requires manually handling epochs.
+            for _ in range(iterations):
+                idxs = np.random.randint(0,x.shape[0],batch_size)
+                x_batch = x[idxs]
+                y_batch_actions = y[idxs]
+                
+                # Predict actions not taken so we do not learn from them.
+                y_batch = self.model.predict(x_batch)
+                y_batch[~np.isnan(y_batch_actions)] = y_batch_actions[~np.isnan(y_batch_actions)]
+                
+                # Learn from these examples.
+                self.model.fit(x=x_batch,
+                               y=y_batch,
+                               batch_size=batch_size,
+                               verbose=0)
+                    
+        
 
     def action(self, observation):
         observations = [[observation]]
