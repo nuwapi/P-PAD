@@ -30,7 +30,10 @@ def discount(rewards, gamma, norm=False, log10=True):
     """
     discounted_rewards = np.zeros_like(rewards)
     current_reward = 0.0
-
+    
+    if log10:
+        rewards[rewards>0] = np.log10(rewards)
+    
     for i in reversed(range(0, len(rewards))):
         current_reward = current_reward * gamma + rewards[i]
         discounted_rewards[i] = current_reward
@@ -41,10 +44,6 @@ def discount(rewards, gamma, norm=False, log10=True):
         std = np.std(discounted_rewards)
         if std > 0:
             discounted_rewards = (discounted_rewards - mean) / std
-    
-    # Or, if we want to take the log of rewards
-    if log10:
-        discounted_rewards = np.log10(discounted_rewards)
 
     return discounted_rewards
 
