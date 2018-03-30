@@ -23,7 +23,8 @@ import ppad
 import ppad.data.dataset01.solved_boards as solved_boards
 
 
-def smart_data(boards=1, permutations=1, trajectories=1, steps=100, allowed_orbs=solved_boards.allowed_orbs):
+def smart_data(boards=1, permutations=1, trajectories=1, steps=100, 
+               discount=True, gamma=0.9, allowed_orbs=solved_boards.allowed_orbs):
     """
     Generate smart training data in a format that can be directly fed into the learning agent.
     The generation 1 of smart training data is derived from human-solved boards and random sampling.
@@ -71,7 +72,14 @@ def smart_data(boards=1, permutations=1, trajectories=1, steps=100, allowed_orbs
                     rewards.append(revert_rewards(steps, final_reward))
                 elif steps == -1:
                     pass
+    
+    if discount:
+        discounted_rewards_list = []
+        for rewards_one_traj in rewards:
+            discounted_rewards_list.append(ppad.discount(rewards=rewards_one_traj, gamma=gamma))
+        rewards = discounted_rewards_list
 
+    
     return observations, actions, rewards
 
 
@@ -93,7 +101,7 @@ def permutation_mapping(original_board, original_orbs, mapping):
 
 
 def revert_observations(observation):
-    return list(reversed(observation)[:-1])
+    return list(reversed(observation))#[:-1]
 
 
 def revert_actions(actions):
