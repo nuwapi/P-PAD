@@ -25,25 +25,28 @@ def discount(rewards, gamma, norm=False, log10=True):
     :param rewards: Raw rewards.
     :param gamma: Discount rate.
     :param norm: Normalize the discounted rewards or not.
-    :param log10: Take log based 10 of rewards.
+    :param log10: Take log base 10 of rewards.
     :return: Discounted rewards.
     """
-    discounted_rewards = np.zeros_like(rewards)
+    discounted_rewards = np.array(rewards)
     current_reward = 0.0
     
-    if log10:
-        rewards[rewards>0] = np.log10(rewards)
+    if any(discounted_rewards>0):
+        # Damage is often in the 1000s. Take log10?
+        if log10:
+            discounted_rewards[discounted_rewards>0] = np.log10(discounted_rewards[discounted_rewards>0])
+        
+        # Discount the rewards.
+        for i in reversed(range(0, len(discounted_rewards))):
+            current_reward = current_reward * gamma + discounted_rewards[i]
+            discounted_rewards[i] = current_reward
     
-    for i in reversed(range(0, len(rewards))):
-        current_reward = current_reward * gamma + rewards[i]
-        discounted_rewards[i] = current_reward
-
-    # If we want to normalize the rewards.
-    if norm:
-        mean = np.mean(discounted_rewards)
-        std = np.std(discounted_rewards)
-        if std > 0:
-            discounted_rewards = (discounted_rewards - mean) / std
+        # Normalize the rewards?
+        if norm:
+            mean = np.mean(discounted_rewards)
+            std = np.std(discounted_rewards)
+            if std > 0:
+                discounted_rewards = (discounted_rewards - mean) / std
 
     return discounted_rewards
 
