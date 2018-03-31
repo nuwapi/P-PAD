@@ -45,7 +45,6 @@ for _ in range(episodes):
         action = env.action_space.sample()
         env.step(action)
     env.step('pass')
-    env.rewards
 
     # Keep the episode if there was any combo.
     if env.rewards[-1] > 0:
@@ -67,4 +66,3 @@ for _ in range(100):
     observation, _, _, _ = env.step(action=action)
 
 print(env.actions)
-env.episode2gif(path=os.environ['PYTHONPATH']+'/visualizations/agent01.gif')

@@ -22,8 +22,6 @@ import sys
 
 # Set up logger.
 logging_root = logging.getLogger()
-# Display INFO level logs and above.
-logging_root.setLevel(logging.DEBUG)
 # Set up logger format.
 logging.basicConfig(format='%(levelname)s: %(asctime)s %(message)s')
 

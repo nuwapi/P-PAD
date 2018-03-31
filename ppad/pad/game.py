@@ -18,12 +18,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>
 
 from datetime import datetime
 import numpy as np
-import os
-from PIL import Image
 import random
 
 import ppad.pad.parameters as parameters
 import ppad.pad.player as player
+import ppad.pad.utils as pad_utils
 
 
 class PAD:
@@ -84,8 +83,6 @@ class PAD:
         self.team = team
         # Information about the enemy or enemies.
         self.enemy = enemy
-        # The action space for this environment.
-        self.action_space = player.PlayerAction()
         # The observation space for this environment.
         # TODO: Fill this in.
         self.observation_space = None
@@ -103,6 +100,8 @@ class PAD:
         self.actions = []
         # List of floats.
         self.rewards = []
+        # The action space for this environment.
+        self.action_space = player.PlayerAction(finger=self.finger, dim_h=self.dim_h, dim_v=self.dim_v)
 
         # Initialize game state.
         self.reset(board=board, finger=finger)
@@ -142,52 +141,10 @@ class PAD:
                 return 'rejected'
         return 'accepted'
 
-    def cancel(self):
-        """
-        Cancel all 3+ connected orbs and generate combos.
-        """
-        combos = []
-        for i in range(self.dim_h):
-            for j in range(self.dim_v):
-                # If this orb has not been checked.
-                orb_type = self.board[i, j]
-                if orb_type != -1:
-                    # 1. Detect island.
-                    # Initially, the island only contains the starting orb.
-                    island = np.zeros((self.dim_h, self.dim_v))
-                    # Detect island starting from position i, j and update island array.
-                    self.detect_island(self.board, island, i, j, orb_type)
-                    # 2. Prune detected island.
-                    pruned_island = np.zeros((self.dim_h, self.dim_v))
-                    for k in range(self.dim_h - parameters.c + 1):
-                        for l in range(self.dim_v):
-                            if np.sum(island[k:k+3, l]) == 3:
-                                pruned_island[k:k+3, l] = 1
-                    for k in range(self.dim_h):
-                        for l in range(self.dim_v - parameters.c + 1):
-                            if np.sum(island[k, l:l+3]) == 3:
-                                pruned_island[k, l:l+3] = 1
-                    # 3. Save the combo and update board.
-                    count = np.sum(pruned_island)
-                    # If there is a combo.
-                    if count >= parameters.c:
-                        # Update board.
-                        for index, element in np.ndenumerate(pruned_island):
-                            if element == 1:
-                                self.board[index] = -1
-                        # Generate combo.
-                        # TODO: Add shape detection and enhanced orb count in the future.
-                        combo = {'color': parameters.int2english[orb_type],
-                                 'N': count,
-                                 'enhanced': None,
-                                 'shape': None}
-                        combos.append(combo)
-        return combos
-
     def damage(self, combos):
         """
         Calculate team damage from a list of combos.
-        :param: combos: The data structure of this list can be found in self.cancel().
+        :param: combos: The data structure of this list can be found in cancel().
         :return: Total damage.
         """
         damage_tracker = {'blue': 0,
@@ -228,30 +185,6 @@ class PAD:
         # Final result
         return sum(damage_tracker.values())
 
-    def detect_island(self, board, island, x, y, orb_type):
-        """
-        Recursively detect islands of conneted orbs.
-        :param board: A Numpy array with self.dim_h and self.dim_v in size.
-        :param island: A Numpy array of the same size as board, initially set to all zeroes.
-        :param x: The starting search location.
-        :param y: The starting search location.
-        :param orb_type: Search for an island of this orb type.
-        """
-        if board[x, y] == orb_type:
-            island[x, y] = 1
-            # Go up.
-            if y+1 < self.dim_v and island[x, y+1] == 0:
-                self.detect_island(board, island, x, y+1, orb_type)
-            # Go down.
-            if y-1 >= 0 and island[x, y-1] == 0:
-                self.detect_island(board, island, x, y-1, orb_type)
-            # Go left.
-            if x+1 < self.dim_h and island[x+1, y] == 0:
-                self.detect_island(board, island, x+1, y, orb_type)
-            # Go right.
-            if x-1 >= 0 and island[x-1, y] == 0:
-                self.detect_island(board, island, x-1, y, orb_type)
-
     def drop(self):
         """
         Move all orbs vertically downwards to fill in empty spaces.
@@ -266,105 +199,14 @@ class PAD:
                 self.board[x, y] = col[y]
         # TODO: Apply the same update to enhanced and locked boards.
 
-    def episode2gif(self, path, shrink=3, ext='gif'):
+    def visualize(self, path, shrink=3, animate=True):
         """
         Note: One needs to have PPADPATH defined to be the root directory (P-PAD) of this repo.
         :param path: The location where intermediate pngs and the final gif are stored.
-        :param shrink: Shrink the output image by this many times along each dimention.
-        :param ext: The type of image to generate, either gif or png. If png is chosen, only render the first frame.
+        :param shrink: Shrink the output image by this many times along each dimension.
+        :param animate: If true, output an animated GIF, it false, output the PNG of the first frame.
         """
-        asset_path = os.environ['PPADPATH'] + '/ppad/assets/'
-        orbs = [asset_path + 'red.png',
-                asset_path + 'blue.png',
-                asset_path + 'green.png',
-                asset_path + 'light.png',
-                asset_path + 'dark.png',
-                asset_path + 'heal.png',
-                asset_path + 'jammer.png',
-                asset_path + 'poison.png',
-                asset_path + 'mortal_poison.png',
-                asset_path + 'bomb.png']
-        bg = [asset_path + 'bg1.png', asset_path + 'bg2.png']
-        finger = self.fingers[0]
-        dim_h = self.dim_h
-        dim_v = self.dim_v
-        # The length of the square image of the orbs is 100 px.
-        edge = 100
-        all_frames = []
-
-        def synthesize_frame(frame_i, action_i, finger_now, shift):
-            this_frame = Image.new("RGB", (dim_h * edge, dim_v * edge))
-
-            move = [0, 0]
-            finger_destination = list(finger_now)
-            if len(self.actions) == 0:
-                pass
-            elif self.actions[action_i] == 'left' and finger_now[0]-1 >= 0:
-                move[0] = int(-shift*edge)
-                finger_destination[0] -= 1
-            elif self.actions[action_i] == 'right' and finger_now[0]+1 < dim_h:
-                move[0] = int(shift*edge)
-                finger_destination[0] += 1
-            elif self.actions[action_i] == 'up' and finger_now[1]+1 < dim_v:
-                move[1] = int(shift*edge)
-                finger_destination[1] += 1
-            elif self.actions[action_i] == 'down' and finger_now[1]-1 >= 0:
-                move[1] = int(-shift * edge)
-                finger_destination[1] -= 1
-
-            # Generate background grid first.
-            for i in range(dim_h):
-                for j in range(dim_v):
-                    this_frame.paste(Image.open(bg[(i+j) % 2]), (i*edge, j*edge, (i+1)*edge, (j+1)*edge))
-
-            # Generate orbs on the background that are not being moved.
-            for i in range(dim_h):
-                for j in range(dim_v):
-                    foreground = Image.open(orbs[self.boards[frame_i].item((i, j))])
-                    if i == finger_now[0] and j == finger_now[1]:
-                        pass
-                    elif i == finger_destination[0] and j == finger_destination[1]:
-                        pass
-                    else:
-                        this_frame.paste(foreground, (i*edge, j*edge, (i+1)*edge, (j+1)*edge), foreground)
-
-            # Generate the orbs that are being moved.
-            i = finger_destination[0]
-            j = finger_destination[1]
-            foreground = Image.open(orbs[self.boards[frame_i][i, j]])
-            this_frame.paste(foreground, (i*edge-move[0], j*edge-move[1], (i+1)*edge-move[0], (j+1)*edge-move[1]),
-                             foreground)
-            i = finger_now[0]
-            j = finger_now[1]
-            foreground = Image.open(orbs[self.boards[frame_i][i, j]])
-            this_frame.paste(foreground, (i*edge+move[0], j*edge+move[1], (i+1)*edge+move[0], (j+1)*edge+move[1]),
-                             foreground)
-            this_frame  = this_frame.resize((int(dim_h*edge/shrink), int(dim_v*edge/shrink)), Image.ANTIALIAS)
-            all_frames.append(this_frame)
-
-        # Generate the whole animation.
-        for index in range(len(self.boards)):
-            if index == len(self.boards) - 1:
-                synthesize_frame(index, 0, finger, 0)
-            else:
-                synthesize_frame(index, index, finger, 0)
-                synthesize_frame(index, index, finger, 0.33)
-                synthesize_frame(index, index, finger, 0.67)
-
-                if self.actions[index] == 'left' and finger[0]-1 >= 0:
-                    finger[0] -= 1
-                elif self.actions[index] == 'right' and finger[0]+1 < dim_h:
-                    finger[0] += 1
-                elif self.actions[index] == 'up' and finger[1]+1 < dim_v:
-                    finger[1] += 1
-                elif self.actions[index] == 'down' and finger[1]-1 >= 0:
-                    finger[1] -= 1
-
-        animation = Image.new("RGB", (int(dim_h * edge / shrink), int(dim_v * edge / shrink)))
-        if ext == 'gif':
-            animation.save(path, save_all=True, append_images=all_frames, duration=0, loop=100, optimize=True)
-        elif ext == 'png':
-            all_frames[0].save(path)
+        pad_utils.episode2gif(observations=self.observations, actions=self.actions, path=path, shrink=shrink, animate=animate)
 
     def fill_board(self, reset=False):
         """
@@ -436,7 +278,7 @@ class PAD:
         if board is None:
             while True:
                 self.fill_board(reset=True)
-                combos = self.cancel()
+                combos = pad_utils.cancel(self.board)
                 if len(combos) == 0:
                     break
         else:
@@ -470,6 +312,8 @@ class PAD:
         reward = 0
         # The finger moving episode is not over by default.
         done = False
+        # Make sure the PlayerAction finger position is up to date.
+        self.action_space.finger = self.finger
         # If the agent decides to stop moving the finger.
         if action is 'pass':
             done = True
@@ -477,7 +321,7 @@ class PAD:
             all_combos = []
             # Repeat the combo detection until nothing more can be canceled.
             while True:
-                combos = self.cancel()
+                combos = pad_utils.cancel(self.board)
                 if verbose is True:
                     print('Board after combo canceling:')
                     self.render()
@@ -506,6 +350,8 @@ class PAD:
             comment = self.apply_action(action)
             if comment == 'accepted':
                 self.action_space.previous_action = action
+            else:
+                raise Exception('Invalid move, you cannot move off the board!')
 
         # TODO: In the future, we would want to output locked and enhanced as observations as well.
         info = 'Currently, we do not provide info.'
