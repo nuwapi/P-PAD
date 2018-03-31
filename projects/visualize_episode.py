@@ -19,13 +19,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>
 import ppad
 from ppad.pad.utils import episode2gif
 
-SOMEPATH = '/home/nwang/PycharmProjects/P-PAD/visualizations/'
+SOMEPATH = 'some_path'
 
 # Example 1: Visualize directly from the environment itself.
 env = ppad.PAD()
 for _ in range(100):
     env.step(action=env.action_space.sample())
-#env.visualize(path=SOMEPATH+'/random_sampling.gif')
+env.visualize(path=SOMEPATH+'/random_sampling.gif')
 
 # Example 2: Visualize using the episode information.
 # Generate observations and actions using any method in the specified format.
