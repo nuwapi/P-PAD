@@ -357,7 +357,7 @@ class PAD:
             if comment == 'accepted':
                 self.action_space.previous_action = action
             else:
-                raise Exception('Invalid move, you cannot move off the board!')
+                print('Invalid move, you cannot move off the board!')
 
         # TODO: In the future, we would want to output locked and enhanced as observations as well.
         info = 'Currently, we do not provide info.'

@@ -47,7 +47,6 @@ class Agent01:
                              activation='relu',
                              kernel_initializer=keras.initializers.RandomNormal()))
         self.model.add(Dense(units=num_classes,
-                             activation='softmax',
                              kernel_initializer=keras.initializers.RandomNormal()))
         self.model.compile(loss=keras.losses.categorical_crossentropy,
                            optimizer=keras.optimizers.Adam(lr=learning_rate),

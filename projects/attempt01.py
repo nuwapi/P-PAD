@@ -24,11 +24,11 @@ import ppad
 # 1. Set up.
 
 # Generate 1000 random episodes.
-episodes = 1000
+episodes = 50
 # On average it takes 80+ steps to solve the board. We set the number of steps
 # per episode to 200 because we do random sampling. This number should probably
 # even be higher than this.
-steps = 100
+steps = 10
 
 env = ppad.PAD()
 agent = ppad.agent01()
@@ -49,7 +49,7 @@ for _ in range(episodes):
     # Keep the episode if there was any combo.
     if env.rewards[-1] > 0:
         discounted_rewards = ppad.discount(rewards=env.rewards, gamma=0.9)
-        observations_list.append(list(env.observations[:-1]))  # Don't need to save the end state.
+        observations_list.append(list(env.observations))  # Don't need to save the end state.
         actions_list.append(list(env.actions))
         discounted_rewards_list.append(list(discounted_rewards))
 
@@ -57,12 +57,13 @@ for _ in range(episodes):
 agent.learn(observations=observations_list,
             actions=actions_list,
             rewards=discounted_rewards_list,
-            epochs=1)
+            iterations=10,
+            experience_replay=False)
 
 # 4. Predict and visualization.
-observation = env.reset(finger=np.array([2, 2]))
 for _ in range(100):
-    action = agent.action(observation)
-    observation, _, _, _ = env.step(action=action)
-
-print(env.actions)
+    observation = env.reset()
+    for _ in range(2):
+        action = agent.action(observation)
+        observation, _, _, _ = env.step(action=action)
+    print(env.actions)
