@@ -42,7 +42,7 @@ def smart_data(boards=1, permutations=1, trajectories=1, steps=100,
     observations_sd = []
     actions_sd = []
     rewards_sd = []
-    env = ppad.PAD()
+    env = ppad.PAD(skyfall_damage=False)
 
     if boards < 0 or boards > len(solved_boards.boards):
         raise Exception('Invalid input value for board = {0}.'.format(boards))
