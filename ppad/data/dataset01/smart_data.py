@@ -20,6 +20,7 @@ import numpy as np
 import random
 
 import ppad
+import ppad.pad.utils as pad_utils
 import ppad.data.dataset01.solved_boards as solved_boards
 
 
@@ -33,12 +34,14 @@ def smart_data(boards=1, permutations=1, trajectories=1, steps=100,
     :param trajectories: The number of trajectories to generate from each permutation of each chosen board.
     :param steps: The number of steps to generate in each trajectory. If steps = -1, terminates the trajectories when
            and only when there is no more combos on the board.
+    :param discount: True for doing discounting.
+    :param gamma: Discount rate.
     :param allowed_orbs: A list of allowed orb identities.
     :return: observations, actions and rewards defined exactly as the same-named variables in ppad.pad.game.
     """
-    observations = []
-    actions = []
-    rewards = []
+    observations_sd = []
+    actions_sd = []
+    rewards_sd = []
     env = ppad.PAD()
 
     if boards < 0 or boards > len(solved_boards.boards):
@@ -47,8 +50,6 @@ def smart_data(boards=1, permutations=1, trajectories=1, steps=100,
         raise Exception('Invalid input value for traj = {0}.'.format(trajectories))
     if permutations < 0:
         raise Exception('Invalid input value for shuffle = {0}.'.format(permutations))
-    if steps < 0:
-        raise Exception('Invalid input value for steps = {0}.'.format(steps))
 
     board_indices = random.sample(range(0, len(solved_boards.boards)), boards)
     for index in board_indices:
@@ -61,26 +62,32 @@ def smart_data(boards=1, permutations=1, trajectories=1, steps=100,
                                                 mapping=current_permutation)
             for _ in range(trajectories):
                 env.reset(board=current_board)
-                final_reward = env.damage(env.cancel())
+                env.step('pass')
+                final_reward = env.rewards[-1]
                 env.reset(board=current_board)
                 if steps != -1:
-                    for _ in range(steps):
+                    for _ in range(steps-1):
                         action = env.action_space.sample()
                         env.step(action)
-                    observations.append(revert_observations(env.observations))
-                    actions.append(revert_actions(env.actions))
-                    rewards.append(revert_rewards(steps, final_reward))
                 elif steps == -1:
-                    pass
+                    # When steps is -1, we reverse sample the board until the first time no combo is left.
+                    combos = [0]
+                    while len(combos) > 0:
+                        action = env.action_space.sample()
+                        env.step(action)
+                        combos = pad_utils.cancel(np.copy(env.board))
+                env.step('pass')
+                observations_sd.append(revert_observations(env.observations))
+                actions_sd.append(revert_actions(env.actions))
+                rewards_sd.append(revert_rewards(len(env.actions), final_reward))
     
     if discount:
         discounted_rewards_list = []
-        for rewards_one_traj in rewards:
+        for rewards_one_traj in rewards_sd:
             discounted_rewards_list.append(ppad.discount(rewards=rewards_one_traj, gamma=gamma))
-        rewards = discounted_rewards_list
+        rewards_sd = discounted_rewards_list
 
-    
-    return observations, actions, rewards
+    return observations_sd, actions_sd, rewards_sd
 
 
 def permutation_mapping(original_board, original_orbs, mapping):
@@ -100,12 +107,17 @@ def permutation_mapping(original_board, original_orbs, mapping):
     return mapped_board
 
 
-def revert_observations(observation):
-    return list(reversed(observation))#[:-1]
+def revert_observations(observations):
+    reversed_observations = []
+    for item in reversed(observations):
+        this_board = np.copy(item[0])
+        this_finger = np.copy(item[1])
+        reversed_observations.append((this_board, this_finger))
+    return reversed_observations
 
 
 def revert_actions(actions):
-    reversed_actions = list(actions)
+    reversed_actions = list(reversed(actions[:-1]))
     for index in range(len(reversed_actions)):
         action = reversed_actions[index]
         if action == 'left':
@@ -123,9 +135,6 @@ def revert_actions(actions):
 
 
 def revert_rewards(steps, final_reward):
-    rewards = [0] * (steps + 1)
+    rewards = [0] * steps
     rewards[-1] = final_reward
     return rewards
-
-
-print('d')
