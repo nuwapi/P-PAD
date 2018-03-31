@@ -126,6 +126,3 @@ def revert_rewards(steps, final_reward):
     rewards = [0] * (steps + 1)
     rewards[-1] = final_reward
     return rewards
-
-
-print('d')

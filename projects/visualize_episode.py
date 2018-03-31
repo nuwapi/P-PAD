@@ -25,4 +25,4 @@ env = ppad.PAD()
 for _ in range(100):
     env.step(action=env.action_space.sample())
 
-env.episode2gif(path=os.environ['PYTHONPATH']+'/visualizations/random_sampling.gif')
+env.episode2gif(path='~/visualizations/random_sampling.gif')
