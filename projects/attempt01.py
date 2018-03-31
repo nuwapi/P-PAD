@@ -16,19 +16,16 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>
 """
 
-import numpy as np
-import os
-
 import ppad
 
 # 1. Set up.
 
-# Generate 1000 random episodes.
-episodes = 50
+# Generate 100 random episodes.
+episodes = 100
 # On average it takes 80+ steps to solve the board. We set the number of steps
 # per episode to 200 because we do random sampling. This number should probably
 # even be higher than this.
-steps = 10
+steps = 1000
 
 env = ppad.PAD()
 agent = ppad.agent01()
@@ -40,7 +37,6 @@ discounted_rewards_list = []
 # 2. Sampling.
 for _ in range(episodes):
     env.reset()
-
     for _ in range(steps):
         action = env.action_space.sample()
         env.step(action)
@@ -57,7 +53,7 @@ for _ in range(episodes):
 agent.learn(observations=observations_list,
             actions=actions_list,
             rewards=discounted_rewards_list,
-            iterations=10,
+            iterations=1,
             experience_replay=False)
 
 # 4. Predict and visualization.
