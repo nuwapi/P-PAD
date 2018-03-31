@@ -168,6 +168,7 @@ def single_episode2gif(observations, actions, path, shrink=3, animate=True):
         :param action_i: The action from the current from to the next frame.
         :param finger_now: The current finger position.
         :param shift: The phase of orb swapping animation, a number from 0 to 1.
+        :param info_text: Additional information, combo, step etc.
         """
         this_frame = Image.new("RGB", size=(dim_h * edge, dim_v * edge + info_bar), color=(0, 0, 0, 255))
 
@@ -227,7 +228,7 @@ def single_episode2gif(observations, actions, path, shrink=3, animate=True):
     # Generate the whole animation.
     for index in range(len(actions)):
         combos = cancel(np.copy(observations[index][0]))
-        display_info = "combo = {0}".format(len(combos))
+        display_info = "step = {0}, combo = {1}".format(index+1, len(combos))
         synthesize_frame(index, index, finger, 0, display_info)
         synthesize_frame(index, index, finger, 0.33, display_info)
         synthesize_frame(index, index, finger, 0.67, display_info)

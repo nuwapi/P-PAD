@@ -20,6 +20,7 @@ import numpy as np
 import random
 
 import ppad
+import ppad.pad.utils as pad_utils
 import ppad.data.dataset01.solved_boards as solved_boards
 
 
@@ -49,8 +50,6 @@ def smart_data(boards=1, permutations=1, trajectories=1, steps=100,
         raise Exception('Invalid input value for traj = {0}.'.format(trajectories))
     if permutations < 0:
         raise Exception('Invalid input value for shuffle = {0}.'.format(permutations))
-    if steps < 0:
-        raise Exception('Invalid input value for steps = {0}.'.format(steps))
 
     board_indices = random.sample(range(0, len(solved_boards.boards)), boards)
     for index in board_indices:
@@ -70,14 +69,17 @@ def smart_data(boards=1, permutations=1, trajectories=1, steps=100,
                     for _ in range(steps-1):
                         action = env.action_space.sample()
                         env.step(action)
-                    env.step('pass')
-                    observations_sd.append(revert_observations(env.observations))
-                    actions_sd.append(revert_actions(env.actions))
-                    rewards_sd.append(revert_rewards(steps, final_reward))
                 elif steps == -1:
                     # When steps is -1, we reverse sample the board until the first time no combo is left.
-                    # This function hasn't been implemented yet.
-                    pass
+                    combos = [0]
+                    while len(combos) > 0:
+                        action = env.action_space.sample()
+                        env.step(action)
+                        combos = pad_utils.cancel(np.copy(env.board))
+                env.step('pass')
+                observations_sd.append(revert_observations(env.observations))
+                actions_sd.append(revert_actions(env.actions))
+                rewards_sd.append(revert_rewards(len(env.actions), final_reward))
     
     if discount:
         discounted_rewards_list = []
