@@ -48,7 +48,7 @@ class Agent01:
                              kernel_initializer=keras.initializers.RandomNormal()))
         self.model.add(Dense(units=num_classes,
                              kernel_initializer=keras.initializers.RandomNormal()))
-        self.model.compile(loss=keras.losses.categorical_crossentropy,
+        self.model.compile(loss=keras.losses.mean_squared_error,
                            optimizer=keras.optimizers.Adam(lr=learning_rate),
                            metrics=['accuracy'])
 
@@ -76,8 +76,7 @@ class Agent01:
         
                     self.model.fit(x=x1,
                                    y=y1,
-                                   batch_size=batch_size,
-                                   verbose=1)
+                                   verbose=0)
         
         # Train using batches of random samples from all trajectories.
         else:
