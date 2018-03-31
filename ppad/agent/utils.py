@@ -50,6 +50,19 @@ def discount(rewards, gamma, norm=False, log10=True):
 
     return discounted_rewards
 
+def print_flattened_channels(board_channels):
+    """ 
+    Flattens a board coded as multiple channels.
+    :param board_channels: A numpy array of x by y by channels. Last channel is
+                           finger position.
+    """
+    flat_board = np.zeros_like(board_channels[:,:,0])
+    for i in range(board_channels.shape[-1]-1):
+        flat_board += (i)*board_channels[:,:,i]
+    finger = np.where(board_channels[:,:,-1])
+    finger = (finger[0][0],finger[1][0])
+    print("Finger position in array: " + str(finger) )
+    print(flat_board)
 
 def step_penalty(rewards, penalty, norm=True):
     pass
