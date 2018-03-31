@@ -25,7 +25,8 @@ import ppad.data.dataset01.solved_boards as solved_boards
 
 
 def smart_data(boards=1, permutations=1, trajectories=1, steps=100, 
-               discount=True, gamma=0.9, allowed_orbs=solved_boards.allowed_orbs):
+               discount=True, gamma=0.9, log10=True,
+               allowed_orbs=solved_boards.allowed_orbs):
     """
     Generate smart training data in a format that can be directly fed into the learning agent.
     The generation 1 of smart training data is derived from human-solved boards and random sampling.
@@ -84,7 +85,7 @@ def smart_data(boards=1, permutations=1, trajectories=1, steps=100,
     if discount:
         discounted_rewards_list = []
         for rewards_one_traj in rewards_sd:
-            discounted_rewards_list.append(ppad.discount(rewards=rewards_one_traj, gamma=gamma))
+            discounted_rewards_list.append(ppad.discount(rewards=rewards_one_traj, gamma=gamma, log10=log10))
         rewards_sd = discounted_rewards_list
 
     return observations_sd, actions_sd, rewards_sd
