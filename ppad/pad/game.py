@@ -471,7 +471,7 @@ class PAD:
         # The finger moving episode is not over by default.
         done = False
         # If the agent decides to stop moving the finger.
-        if action == 'pass':
+        if action is 'pass':
             done = True
             # A list of dictionaries to store combos.
             all_combos = []
@@ -511,9 +511,10 @@ class PAD:
         info = 'Currently, we do not provide info.'
 
         # Save current state to the record.
-        self.observations.append((np.copy(self.board), np.copy(self.finger)))
-        self.boards.append(self.observations[-1][0])
-        self.fingers.append(self.observations[-1][1])
+        if action is not 'pass':
+            self.observations.append((np.copy(self.board), np.copy(self.finger)))
+            self.boards.append(self.observations[-1][0])
+            self.fingers.append(self.observations[-1][1])
         self.actions.append(action)
         self.rewards.append(reward)
 
