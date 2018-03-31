@@ -103,7 +103,22 @@ class Agent01:
 
     def action(self, observation):
         observations = [[observation]]
+        dim_h = observation[0].shape[0]
+        dim_v = observation[0].shape[1]
+        this_finger = observation[1]
+        invalid_action_list = []
+        if this_finger[0] <= 0:
+            invalid_action_list.append(0)  # Left.
+        if this_finger[0] >= dim_h - 1:
+            invalid_action_list.append(1)  # Right.
+        if this_finger[1] >= dim_v - 1:
+            invalid_action_list.append(2)  # Up.
+        if this_finger[1] <= 0:
+            invalid_action_list.append(3)  # Down.
+
         prediction = self.model.predict(self.convert_input(observations=observations)[0])
+        for index in invalid_action_list:
+            prediction[0][index] = -np.inf
         action_type = np.unravel_index(np.argmax(prediction[0], axis=None), prediction[0].shape)
         action_type = int(action_type[0])
         if action_type == 0:
