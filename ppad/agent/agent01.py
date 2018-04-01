@@ -23,7 +23,8 @@ import numpy as np
 
 class Agent01:
     def __init__(self, num_filters=32, kernel_len=3, dense_units=64,
-                 learning_rate = 0.01, conv_layers=2, dense_layers=2):
+                 learning_rate = 0.01, conv_layers=2, dense_layers=2,
+                 tensorboard_path='/data/logs'):
         # Basic parameters.
         input_shape = (6, 5, 7)  # 6 by 5 board with 7 channels (5 colors plus heal and finger position).
         num_classes = 5  # left, right, up, down and pass.
@@ -52,6 +53,13 @@ class Agent01:
                            optimizer=keras.optimizers.Adam(lr=learning_rate),
                            metrics=['mae'])
 
+        # Initialize Tensorboard.
+        self.tensorboard_path = tensorboard_path
+        self.tensorboard = keras.callbacks.TensorBoard(log_dir=tensorboard_path, histogram_freq=0, batch_size=32,
+                                                       write_graph=True, write_grads=False, write_images=False,
+                                                       embeddings_freq=0, embeddings_layer_names=None,
+                                                       embeddings_metadata=None)
+
     def learn(self, observations, actions, rewards, iterations, batch_size=32, 
               experience_replay=True):
         ## Pre-processing
@@ -73,11 +81,10 @@ class Agent01:
                     # For the actions that were not chosen, assign their reward value to what the neural net predicts.
                     # Effectively, the neural net doesn't learn from un-chosen actions.
                     y1[0][np.isnan(y1[0])] = yp[0][np.isnan(y1[0])]
-        
                     self.model.fit(x=x1,
                                    y=y1,
-                                   verbose=0)
-        
+                                   verbose=0,
+                                   callbacks=[self.tensorboard])
         # Train using batches of random samples from all trajectories.
         else:
             # Initialize arrays for batch data.
@@ -100,7 +107,9 @@ class Agent01:
                 self.model.fit(x=x_batch,
                                y=y_batch,
                                batch_size=batch_size,
-                               verbose=0)
+                               verbose=0,
+                               callbacks=[self.tensorboard])
+        print('Done learning. Run:\n    tensorboard --logdir={0}\nto see your results.'.format(self.tensorboard_path))
 
     def action(self, observation):
         observations = [[observation]]
