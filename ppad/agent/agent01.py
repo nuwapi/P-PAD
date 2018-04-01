@@ -23,34 +23,34 @@ import numpy as np
 
 class Agent01:
     def __init__(self, num_filters=32, kernel_len=3, dense_units=64,
-                 learning_rate = 0.01):
+                 learning_rate = 0.01, conv_layers=2, dense_layers=2):
         # Basic parameters.
         input_shape = (6, 5, 7)  # 6 by 5 board with 7 channels (5 colors plus heal and finger position).
         num_classes = 5  # left, right, up, down and pass.
-
+        if type(kernel_len) is int:
+            kernel_len = [kernel_len]*conv_layers
+        
         # Initialize model.
         self.model = keras.models.Sequential()
-        self.model.add(Conv2D(filters=num_filters,
-                              kernel_size=(kernel_len, kernel_len),
-                              activation='relu',
-                              input_shape=input_shape,
-                              kernel_initializer=keras.initializers.RandomNormal()))
-        self.model.add(Conv2D(filters=num_filters,
-                              kernel_size=(kernel_len, kernel_len),
-                              activation='relu',
-                              kernel_initializer=keras.initializers.RandomNormal()))
+        for i in range(conv_layers):
+            self.model.add(Conv2D(filters=num_filters,
+                                  kernel_size=(kernel_len[i], kernel_len[i]),
+                                  activation='relu',
+                                  input_shape=input_shape,
+                                  kernel_initializer=keras.initializers.RandomNormal()))
         self.model.add(Flatten())
-        self.model.add(Dense(units=dense_units,
-                             activation='relu',
-                             kernel_initializer=keras.initializers.RandomNormal()))
-        self.model.add(Dense(units=dense_units,
-                             activation='relu',
-                             kernel_initializer=keras.initializers.RandomNormal()))
+        
+        for i in range(dense_layers):
+            self.model.add(Dense(units=dense_units,
+                                 activation='relu',
+                                 kernel_initializer=keras.initializers.RandomNormal()))
+            self.model.add(keras.layers.Dropout(rate=0.5))
+        
         self.model.add(Dense(units=num_classes,
                              kernel_initializer=keras.initializers.RandomNormal()))
         self.model.compile(loss=keras.losses.mean_squared_error,
                            optimizer=keras.optimizers.Adam(lr=learning_rate),
-                           metrics=['accuracy'])
+                           metrics=['mae'])
 
     def learn(self, observations, actions, rewards, iterations, batch_size=32, 
               experience_replay=True):
@@ -93,6 +93,8 @@ class Agent01:
                 # Predict actions not taken so we do not learn from them.
                 y_batch = self.model.predict(x_batch)
                 y_batch[~np.isnan(y_batch_actions)] = y_batch_actions[~np.isnan(y_batch_actions)]
+                # Minmum value should be zero. Speed up by changing negatives.
+                y_batch[y_batch<0] = 0.0
                 
                 # Learn from these examples.
                 self.model.fit(x=x_batch,
