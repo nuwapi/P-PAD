@@ -16,125 +16,221 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>
 """
 
-import tensorflow as tf
-import keras
-from keras.layers import Conv2D, Dense, Flatten
 import numpy as np
+import tensorflow as tf
 
 
 class Agent02:
     """
-    Agent02 focuses on 5 by 6 boards. Agent 02 is written in Tensorflow.
+    Agent02 focuses on 6 by 5 boards. Agent 02 is written in Tensorflow.
     """
-    def __init__(self, dense_units=64, learning_rate=0.01, tensorboard_path='/data/logs'):
+    def __init__(self, learning_rate=0.01, tensorboard_path='~/ppad_logs/1'):
         tf.logging.set_verbosity(tf.logging.INFO)
 
-        # Input.
-        self.input_shape = (6, 5, 7)
-        self.input_data = tf.placeholder(tf.float32, shape=self.input_shape)
+        # Neural net specifications.
+        self.dim_h = 6
+        self.dim_v = 5
+        self.channels = 7
+        self.filters1 = 32
+        self.kernel_len1 = 3
+        self.filters2 = 32
+        self.kernel_len2 = 2
+        self.dense_units1 = 64
+        self.dense_units2 = 64
+        self.action_space_size = 5
+        self.dropout = 0.5
+        self.learning_rate = learning_rate
+        self.tensorboard_path = tensorboard_path
 
-        # Initialize neural net weights.
-        tf.Variable(tf.random_normal(shape,
-                                     mean=0.0,
-                                     stddev=1.0,
-                                     dtype=tf.float32,
-                                     seed=None,
-                                     name=None))
+        # Set up TF's high-level estimator API.
+        self.initialized = False
+        self.model = tf.estimator.Estimator(self.model_fn)
 
-        # Convolution layer 1.
-        conv1 = tf.layers.conv2d(
-            inputs=self.input_data,
-            filters=32,
-            kernel_size=[3, 3],
-            padding='valid',
-            activation=tf.nn.relu,
-            kernel_initializer=)
+    def CNN(self, x_in, reuse, is_training):
+        """
+        :param x_in: In put data in dimensions  [batch_size, self.dim_h, self.dim_v, self.channels].
+        :param reuse: True for first time initialization.
+        :param is_training:
+        :return:
+        """
+        # Define a scope for reusing the neural network weights.
+        with tf.variable_scope('CNN', reuse=reuse):
+            # Input.
+            x = tf.reshape(x_in, [-1, self.dim_h, self.dim_v, self.channels], name='x')
 
-        # Pooling Layer #1
-        pool1 = tf.layers.max_pooling2d(inputs=conv1, pool_size=[2, 2], strides=2)
+            # Convolution layer 1.
+            conv1 = tf.layers.conv2d(
+                inputs=x,      # [batch_size, 6, 5, 7]
+                filters=self.filters1,
+                kernel_size=[self.kernel_len1, self.kernel_len1],
+                padding='valid',
+                activation=tf.nn.relu,
+                kernel_initializer=tf.random_normal_initializer(),
+                name='conv1'
+            )
 
-        # Convolutional Layer #2 and Pooling Layer #2
-        conv2 = tf.layers.conv2d(
-            inputs=pool1,
-            filters=64,
-            kernel_size=[5, 5],
-            padding='valid',
-            activation=tf.nn.relu)
-        pool2 = tf.layers.max_pooling2d(inputs=conv2, pool_size=[2, 2], strides=2)
+            # Convolution layer 2.
+            conv2 = tf.layers.conv2d(
+                inputs=conv1,  # [batch_size, 4, 3, 32]
+                filters=self.filters2,
+                kernel_size=[self.kernel_len2, self.kernel_len2],
+                padding='valid',
+                activation=tf.nn.relu,
+                kernel_initializer=tf.random_normal_initializer(),
+                name='conv2'
+            )
 
-        # Dense Layer
-        pool2_flat = tf.reshape(pool2, [-1, 7 * 7 * 64])
-        dense = tf.layers.dense(inputs=pool2_flat, units=1024, activation=tf.nn.relu)
-        dropout = tf.layers.dropout(
-            inputs=dense, rate=0.4, training=mode == tf.estimator.ModeKeys.TRAIN)
+            # Flatten the layers.
+            flat = tf.contrib.layers.flatten(
+                inputs=conv2,  # [batch_size, 3, 2, 32]
+                name='flatten'
+            )
 
-        # Logits Layer
-        logits = tf.layers.dense(inputs=dropout, units=10)
+            # Dense layer 1.
+            dense1 = tf.layers.dense(
+                inputs=flat,  # [batch_size, 3*2*32=192]
+                units=self.dense_units1,
+                activation=tf.nn.relu,
+                kernel_initializer=tf.random_normal_initializer(),
+                name='dense1'
+            )
+            dense1 = tf.layers.dropout(dense1, rate=self.dropout, training=is_training, name='dense1_do')
 
-        predictions = {
-            # Generate predictions (for PREDICT and EVAL mode)
-            "classes": tf.argmax(input=logits, axis=1),
-            # Add `softmax_tensor` to the graph. It is used for PREDICT and by the
-            # `logging_hook`.
-            "probabilities": tf.nn.softmax(logits, name="softmax_tensor")
-        }
+            # Dense layer 2.
+            dense2 = tf.layers.dense(
+                inputs=dense1,  # [batch_size, 64]
+                units=self.dense_units2,
+                activation=tf.nn.relu,
+                kernel_initializer=tf.random_normal_initializer(),
+                name='dense2'
+            )
+            dense2 = tf.layers.dropout(dense2, rate=self.dropout, training=is_training, name='dense2_do')
 
+            # The predictive last dense layer.
+            dense3 = tf.layers.dense(
+                inputs=dense2,  # [batch_size, 64]
+                units=self.action_space_size,
+                kernel_initializer=tf.random_normal_initializer(),
+                name='predict'
+            )
+
+        return dense3
+
+    def model_fn(self, x, y, mode):
+        if self.initialized is False:
+            CNN_train = self.CNN(x, reuse=False, is_training=True)
+            self.initialized = True
+        else:
+            CNN_train = self.CNN(x, reuse=True, is_training=True)
+        CNN_inference = self.CNN(x, reuse=True, is_training=False)
+
+        if mode is tf.estimator.ModeKeys.TRAIN:
+            pass
+        elif mode is tf.estimator.ModeKeys.EVAL:
+            pass
+        elif mode is tf.estimator.ModeKeys.PREDICT:
+            pred_classes = CNN_inference
+
+        else:
+            raise Exception('Invalid tf.estimator.ModeKeys!')
+
+
+
+        pred_classes = tf.argmax(CNN_predict, axis=1)
+        pred_probas = tf.nn.softmax(CNN_predict)
+
+        # If prediction mode, early return
         if mode == tf.estimator.ModeKeys.PREDICT:
-            return tf.estimator.EstimatorSpec(mode=mode, predictions=predictions)
+            return tf.estimator.EstimatorSpec(mode, predictions=pred_classes)
 
-        # Calculate Loss (for both TRAIN and EVAL modes)
-        loss = tf.losses.sparse_softmax_cross_entropy(labels=labels, logits=logits)
+            # Define loss and optimizer
+        loss_op = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
+            logits=logits_train, labels=tf.cast(labels, dtype=tf.int32)))
+        optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
+        train_op = optimizer.minimize(loss_op,
+                                      global_step=tf.train.get_global_step())
 
-        # Configure the Training Op (for TRAIN mode)
-        if mode == tf.estimator.ModeKeys.TRAIN:
-            optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.001)
-            train_op = optimizer.minimize(
-                loss=loss,
-                global_step=tf.train.get_global_step())
-            return tf.estimator.EstimatorSpec(mode=mode, loss=loss, train_op=train_op)
+        # Evaluate the accuracy of the model
+        acc_op = tf.metrics.accuracy(labels=labels, predictions=pred_classes)
 
-        # Add evaluation metrics (for EVAL mode)
-        eval_metric_ops = {
-            "accuracy": tf.metrics.accuracy(
-                labels=labels, predictions=predictions["classes"])}
-        return tf.estimator.EstimatorSpec(
-            mode=mode, loss=loss, eval_metric_ops=eval_metric_ops)
+        # TF Estimators requires to return a EstimatorSpec, that specify
+        # the different ops for training, evaluating, ...
+        estim_specs = tf.estimator.EstimatorSpec(
+            mode=mode,
+            predictions=pred_classes,
+            loss=loss_op,
+            train_op=train_op,
+            eval_metric_ops={'accuracy': acc_op})
+
+        return estim_specs
+
+
+
+        #
+        #
+        # raw_y = tf.placeholder(tf.float32, [None, self.action_space_size], name='raw_y')
+        # y = tf.reshape(raw_y, [-1, self.action_space_size], name='y')
+        # # Loss function and optimizer.
+        # loss = tf.losses.mean_squared_error(
+        #     labels=y,
+        #     predictions=self.dense3,
+        # )
+        # optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
+        #
+        #
+        #
+        # # Configure the Training Op (for TRAIN mode)
+        # if mode == tf.estimator.ModeKeys.TRAIN:
+        #     self.optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
+        #     train_op = optimizer.minimize(
+        #         loss=loss,
+        #         global_step=tf.train.get_global_step())
+        #     return tf.estimator.EstimatorSpec(mode=mode, loss=loss, train_op=train_op)
+        #
+        #
+        #
+        # self.model.compile(loss=keras.losses.mean_squared_error,
+        #                    optimizer=keras.optimizers.Adam(lr=learning_rate),
+        #                    metrics=['accuracy'])
+        # # Initialize Tensorboard.
+        # self.tensorboard_path = tensorboard_path
+        # self.tensorboard = keras.callbacks.TensorBoard(log_dir=tensorboard_path, histogram_freq=0, batch_size=32,
+        #                                                write_graph=True, write_grads=False, write_images=False,
+        #                                                embeddings_freq=0, embeddings_layer_names=None,
+        #                                                embeddings_metadata=None)
+##################################
+
+        # predictions = {
+        #     # Generate predictions (for PREDICT and EVAL mode)
+        #     "classes": tf.argmax(input=logits, axis=1),
+        #     # Add `softmax_tensor` to the graph. It is used for PREDICT and by the
+        #     # `logging_hook`.
+        #     "probabilities": tf.nn.softmax(logits, name="softmax_tensor")
+        # }
+        #
+        # if mode == tf.estimator.ModeKeys.PREDICT:
+        #     return tf.estimator.EstimatorSpec(mode=mode, predictions=predictions)
+        #
+        # # Calculate Loss (for both TRAIN and EVAL modes)
+        # loss = tf.losses.sparse_softmax_cross_entropy(labels=labels, logits=logits)
+        #
+        # # Configure the Training Op (for TRAIN mode)
+        # if mode == tf.estimator.ModeKeys.TRAIN:
+        #     optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.001)
+        #     train_op = optimizer.minimize(
+        #         loss=loss,
+        #         global_step=tf.train.get_global_step())
+        #     return tf.estimator.EstimatorSpec(mode=mode, loss=loss, train_op=train_op)
+        #
+        # # Add evaluation metrics (for EVAL mode)
+        # eval_metric_ops = {
+        #     "accuracy": tf.metrics.accuracy(
+        #         labels=labels, predictions=predictions["classes"])}
+        # return tf.estimator.EstimatorSpec(
+        #     mode=mode, loss=loss, eval_metric_ops=eval_metric_ops)
 
 ###################################################
-        # Basic parameters.
-        input_shape = (6, 5, 7)  # 6 by 5 board with 7 channels (5 colors plus heal and finger position).
-        num_classes = 5  # left, right, up, down and pass.
 
-        # Initialize model.
-        self.model = keras.models.Sequential()
-        self.model.add(Conv2D(filters=num_filters,
-                              kernel_size=(kernel_len, kernel_len),
-                              activation='relu',
-                              input_shape=input_shape,
-                              kernel_initializer=keras.initializers.RandomNormal()))
-        self.model.add(Conv2D(filters=num_filters,
-                              kernel_size=(kernel_len, kernel_len),
-                              activation='relu',
-                              kernel_initializer=keras.initializers.RandomNormal()))
-        self.model.add(Flatten())
-        self.model.add(Dense(units=dense_units,
-                             activation='relu',
-                             kernel_initializer=keras.initializers.RandomNormal()))
-        self.model.add(Dense(units=dense_units,
-                             activation='relu',
-                             kernel_initializer=keras.initializers.RandomNormal()))
-        self.model.add(Dense(units=num_classes,
-                             kernel_initializer=keras.initializers.RandomNormal()))
-        self.model.compile(loss=keras.losses.mean_squared_error,
-                           optimizer=keras.optimizers.Adam(lr=learning_rate),
-                           metrics=['accuracy'])
-
-        # Initialize Tensorboard.
-        self.tensorboard_path = tensorboard_path
-        self.tensorboard = keras.callbacks.TensorBoard(log_dir=tensorboard_path, histogram_freq=0, batch_size=32,
-                                                       write_graph=True, write_grads=False, write_images=False,
-                                                       embeddings_freq=0, embeddings_layer_names=None,
-                                                       embeddings_metadata=None)
 
     def learn(self, observations, actions, rewards, iterations, batch_size=32, 
               experience_replay=True):
@@ -276,5 +372,5 @@ class Agent02:
         return x, y
 
 
-def agent01():
-    return Agent01()
+def agent02():
+    return Agent02()
