@@ -16,17 +16,124 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>
 """
 
+import datetime
 import numpy as np
+import os
+import pathlib
 import tensorflow as tf
+
+# Configure logging.
+tf.logging.set_verbosity(tf.logging.INFO)
+
+# Set up parameters.
+tensorboard_path = os.path.join(str(pathlib.Path.home()),
+                                'ppad-tensorboard_'+datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S"))
+# Basic parameters and some non-tunable hyperparameters.
+p = tf.contrib.training.HParams(dim_h=6,              # The width of the board. Agent 02 only deals with 6 by 5 boards.
+                                dim_v=5,              # The height of the board. Agent 02 only deals with 6 by 5 boards.
+                                channels=7,           # 6 colors plus finger position.
+                                action_space_size=5,  # The number of all of the possible actions (left, right, top, down, pass).
+                                tensorboard_path=tensorboard_path  # The path to where tensorboard stores its files.
+                                )
+# Tunable hyperparameters.
+hp = tf.contrib.training.HParams(filters_conv1=32,
+                                 kernel_conv1=3,
+                                 filters_conv2=32,
+                                 kernel_conv2=2,
+                                 units_dense1=64,
+                                 units_dense2=64,
+                                 dropout=0.5,
+                                 learning_rate=0.01)
+
+# Tensorflow configurations.
+config = tf.estimator.RunConfig()
+# We don't really set any config up yet. Could be useful later if we want to monitor the training or save models.
+
+# The Agent 02 estimator.
+estimator = tf.estimator.Estimator(model_fn=model_fn,
+                                   params=hp,
+                                   config=config)
+
+
+def model_fn(x, y, mode, p, hp):
+    reuse = False
+    is_training = False
+
+    # Define a scope for reusing the neural network weights.
+    with tf.variable_scope('CNN', reuse=reuse):
+        # Input.
+        x = tf.reshape(x_in, [-1, self.dim_h, self.dim_v, self.channels], name='x')
+
+        # Convolution layer 1.
+        conv1 = tf.layers.conv2d(
+            inputs=x,  # [batch_size, 6, 5, 7]
+            filters=self.filters1,
+            kernel_size=[self.kernel_len1, self.kernel_len1],
+            padding='valid',
+            activation=tf.nn.relu,
+            kernel_initializer=tf.random_normal_initializer(),
+            name='conv1'
+        )
+
+        # Convolution layer 2.
+        conv2 = tf.layers.conv2d(
+            inputs=conv1,  # [batch_size, 4, 3, 32]
+            filters=self.filters2,
+            kernel_size=[self.kernel_len2, self.kernel_len2],
+            padding='valid',
+            activation=tf.nn.relu,
+            kernel_initializer=tf.random_normal_initializer(),
+            name='conv2'
+        )
+
+        # Flatten the layers.
+        flat = tf.contrib.layers.flatten(
+            inputs=conv2,  # [batch_size, 3, 2, 32]
+            name='flatten'
+        )
+
+        # Dense layer 1.
+        dense1 = tf.layers.dense(
+            inputs=flat,  # [batch_size, 3*2*32=192]
+            units=self.dense_units1,
+            activation=tf.nn.relu,
+            kernel_initializer=tf.random_normal_initializer(),
+            name='dense1'
+        )
+        dense1 = tf.layers.dropout(dense1, rate=self.dropout, training=is_training, name='dense1_do')
+
+        # Dense layer 2.
+        dense2 = tf.layers.dense(
+            inputs=dense1,  # [batch_size, 64]
+            units=self.dense_units2,
+            activation=tf.nn.relu,
+            kernel_initializer=tf.random_normal_initializer(),
+            name='dense2'
+        )
+        dense2 = tf.layers.dropout(dense2, rate=self.dropout, training=is_training, name='dense2_do')
+
+        # The predictive last dense layer.
+        dense3 = tf.layers.dense(
+            inputs=dense2,  # [batch_size, 64]
+            units=self.action_space_size,
+            kernel_initializer=tf.random_normal_initializer(),
+            name='predict'
+        )
 
 
 class Agent02:
     """
-    Agent02 focuses on 6 by 5 boards. Agent 02 is written in Tensorflow.
+    Agent02 focuses on 6 by 5 boards. Agent 02 is written using Tensorflow estimator, experiment and dataset APIs.
     """
     def __init__(self, learning_rate=0.01, tensorboard_path='~/ppad_logs/1'):
-        tf.logging.set_verbosity(tf.logging.INFO)
 
+        self.params = tf.contrib.training.HParams()
+
+        self.estimator = tf.estimator.Estimator(
+            model_fn=self.model_fn,
+            params=params,
+            config=run_config  # RunConfig
+        )
         # Neural net specifications.
         self.dim_h = 6
         self.dim_v = 5
@@ -45,6 +152,9 @@ class Agent02:
         # Set up TF's high-level estimator API.
         self.initialized = False
         self.model = tf.estimator.Estimator(self.model_fn)
+
+    def model_fn(self):
+        pass
 
     def CNN(self, x_in, reuse, is_training):
         """
