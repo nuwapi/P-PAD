@@ -44,13 +44,13 @@ config = tf.estimator.RunConfig()
 # We don't really set any config up yet. Could be useful later if we want to monitor the training or save models.
 
 
-def model_fn(x, y, mode, hp):
+def model_fn(features, labels, mode, params):
     """
-    :param x: Features. x should be an numpy array with dimensions [batch_size, p.dim_h, p.dim_v, p.channels].
+    :param features: Features. x should be an numpy array with dimensions [batch_size, p.dim_h, p.dim_v, p.channels].
     :param y: Labels.
     :param mode: Train, eval or predict.
     :param p: Basic parameters and some non-tunable hyperparameters.
-    :param hp: Tunable hyperparameters.
+    :param params: Tunable hyperparameters.
     :return:
     """
     # Basic parameters and some non-tunable hyperparameters.
@@ -79,13 +79,13 @@ def model_fn(x, y, mode, hp):
     # Define a scope for reusing the neural network weights.
     with tf.variable_scope('agent02', reuse=reuse):
         # Input.
-        x = tf.reshape(x, [-1, p.dim_h, p.dim_v, p.channels], name='x')
+        features = tf.reshape(features, [-1, p.dim_h, p.dim_v, p.channels], name='x')
 
         # Convolution layer 1.
         conv1 = tf.layers.conv2d(
-            inputs=x,  # [batch_size, 6, 5, 7]
-            filters=hp.filters_conv1,
-            kernel_size=[hp.kernel_conv1, hp.kernel_conv1],
+            inputs=features,  # [batch_size, 6, 5, 7]
+            filters=params.filters_conv1,
+            kernel_size=[params.kernel_conv1, params.kernel_conv1],
             padding='valid',
             activation=tf.nn.relu,
             kernel_initializer=tf.random_normal_initializer(),
@@ -95,8 +95,8 @@ def model_fn(x, y, mode, hp):
         # Convolution layer 2.
         conv2 = tf.layers.conv2d(
             inputs=conv1,  # [batch_size, 4, 3, 32]
-            filters=hp.filters_conv2,
-            kernel_size=[hp.kernel_conv2, hp.kernel_conv2],
+            filters=params.filters_conv2,
+            kernel_size=[params.kernel_conv2, params.kernel_conv2],
             padding='valid',
             activation=tf.nn.relu,
             kernel_initializer=tf.random_normal_initializer(),
@@ -112,22 +112,22 @@ def model_fn(x, y, mode, hp):
         # Dense layer 1.
         dense1 = tf.layers.dense(
             inputs=flat,  # [batch_size, 3*2*32=192]
-            units=hp.units_dense1,
+            units=params.units_dense1,
             activation=tf.nn.relu,
             kernel_initializer=tf.random_normal_initializer(),
             name='dense1'
         )
-        dense1 = tf.layers.dropout(dense1, rate=hp.dropout, training=is_training, name='dense1_do')
+        dense1 = tf.layers.dropout(dense1, rate=params.dropout, training=is_training, name='dense1_do')
 
         # Dense layer 2.
         dense2 = tf.layers.dense(
             inputs=dense1,  # [batch_size, 64]
-            units=hp.units_dense2,
+            units=params.units_dense2,
             activation=tf.nn.relu,
             kernel_initializer=tf.random_normal_initializer(),
             name='dense2'
         )
-        dense2 = tf.layers.dropout(dense2, rate=hp.dropout, training=is_training, name='dense2_do')
+        dense2 = tf.layers.dropout(dense2, rate=params.dropout, training=is_training, name='dense2_do')
 
         # The predictive, last dense layer.
         dense3 = tf.layers.dense(
@@ -143,7 +143,7 @@ def model_fn(x, y, mode, hp):
             raise Exception('Evaluation mode is not yet available.')
         elif mode == tf.estimator.ModeKeys.PREDICT:
             # Get the finger position.
-            this_finger = tf.where(tf.equal(x[0], one))[0]
+            this_finger = tf.where(tf.equal(features[0], one))[0]
             # See which actions cannot be taken.
             invalid_action_list = []
             if tf.less_equal(this_finger[0], zero):
