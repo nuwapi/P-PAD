@@ -110,8 +110,8 @@ def episode2gif(observations=None, actions=None, filename=None, shrink=3, episod
     """
     if type(observations) is not list or \
        type(actions) is not list or \
-       len(observations) is 0 or \
-       len(actions) is 0 or \
+       len(observations) == 0 or \
+       len(actions) == 0 or \
        filename is None:
         raise Exception('Invalid input parameters!')
     elif type(observations[0]) is list:

@@ -28,12 +28,7 @@ tf.logging.set_verbosity(tf.logging.INFO)
 # Set up parameters.
 tensorboard_path = os.path.join(str(pathlib.Path.home()),
                                 'ppad-tensorboard_'+datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S"))
-# Basic parameters and some non-tunable hyperparameters.
-p = tf.contrib.training.HParams(dim_h=6,              # The width of the board. Agent 02 only deals with 6 by 5 boards.
-                                dim_v=5,              # The height of the board. Agent 02 only deals with 6 by 5 boards.
-                                channels=7,           # 6 colors plus finger position.
-                                action_space_size=5,  # The number of all of the possible actions (left, right, top, down, pass).
-                                tensorboard_path=tensorboard_path)  # The path to where tensorboard stores its files.
+
 # Tunable hyperparameters.
 hp = tf.contrib.training.HParams(filters_conv1=32,
                                  kernel_conv1=3,
@@ -49,7 +44,7 @@ config = tf.estimator.RunConfig()
 # We don't really set any config up yet. Could be useful later if we want to monitor the training or save models.
 
 
-def model_fn(x, y, mode, p, hp):
+def model_fn(x, y, mode, hp):
     """
     :param x: Features. x should be an numpy array with dimensions [batch_size, p.dim_h, p.dim_v, p.channels].
     :param y: Labels.
@@ -58,6 +53,19 @@ def model_fn(x, y, mode, p, hp):
     :param hp: Tunable hyperparameters.
     :return:
     """
+    # Basic parameters and some non-tunable hyperparameters.
+    p = tf.contrib.training.HParams(dim_h=6,  # The width of the board. Agent 02 only deals with 6 by 5 boards.
+                                    dim_v=5,  # The height of the board. Agent 02 only deals with 6 by 5 boards.
+                                    channels=7,  # 6 colors plus finger position.
+                                    action_space_size=5,
+                                    # The number of all of the possible actions (left, right, top, down, pass).
+                                    tensorboard_path=tensorboard_path)  # The path to where tensorboard stores its files.
+    # Set up constant tensors.
+    one = tf.constant(1, dtype=tf.float32)
+    zero = tf.constant(0, dtype=tf.float32)
+    dim_h = tf.constant(p.dim_h, dtype=tf.float32)
+    dim_v = tf.constant(p.dim_v, dtype=tf.float32)
+
     # Always reuse variables if scope 'agent02' is not empty.
     # If we did not initialize all of the necessary variables Tensorflow will throw an error.
     reuse = True
@@ -130,12 +138,43 @@ def model_fn(x, y, mode, p, hp):
         )
 
         if mode == tf.estimator.ModeKeys.TRAIN:
-            return dense3
-        elif mode == tf.estimator.ModeKeys.EVAL:
             pass
+        elif mode == tf.estimator.ModeKeys.EVAL:
+            raise Exception('Evaluation mode is not yet available.')
         elif mode == tf.estimator.ModeKeys.PREDICT:
+            # Get the finger position.
+            this_finger = tf.where(tf.equal(x[0], one))[0]
+            # See which actions cannot be taken.
+            invalid_action_list = []
+            if tf.less_equal(this_finger[0], zero):
+                invalid_action_list.append(0)  # Left.
+            if tf.greater_equal(this_finger[0], dim_h - 1):
+                invalid_action_list.append(1)  # Right.
+            if tf.greater_equal(this_finger[1], dim_v - 1):
+                invalid_action_list.append(2)  # Up.
+            if tf.less_equal(this_finger[1], zero):
+                invalid_action_list.append(3)  # Down.
+
+            # for index in invalid_action_list:
+            #     prediction[0][index] = -np.inf
+            # action_type = np.unravel_index(np.argmax(prediction[0], axis=None), prediction[0].shape)
+            # action_type = int(action_type[0])
+            # if action_type == 0:
+            #     action = 'left'
+            # elif action_type == 1:
+            #     action = 'right'
+            # elif action_type == 2:
+            #     action = 'up'
+            # elif action_type == 3:
+            #     action = 'down'
+            # elif action_type == 4:
+            #     action = 'pass'
+            # else:
+            #     raise Exception('Action type {0} is invalid.'.format(action_type))
+
             predictions = {
-                'damage': dense3
+                'all_damages': dense3,
+                'action': "NULL"
             }
             return tf.estimator.EstimatorSpec(mode, predictions=predictions)
 
@@ -146,25 +185,50 @@ estimator = tf.estimator.Estimator(model_fn=model_fn,
                                    config=config)
 
 
-def convert_input(observations=None, actions=None, rewards=None):
+def input_fn(observations=None,
+             actions=None,
+             rewards=None,
+             mode=tf.estimator.ModeKeys.PREDICT,
+             sample_with_replacement=False):
     """
     Convert the output of the environment into Tensorflow usable input.
-    :param observations: observations[i][j] = (np_array(6,5), np_array(2))
-    :param actions: actions[i][j] = string
-    :param rewards: rewards[i][j] = float
+    Here we concatenate all of the frames of all of the trajectories.
+    During training, there is no concept of trajectories, just a bunch of frames.
+    :param observations: observations[i] or observations[i][j] = (np_array(6,5), np_array(2)).
+    :param actions: actions[i] or actions[i][j] = string.
+    :param rewards: rewards[i] or rewards[i][j] = float.
+    :param mode: TRAIN, EVAL or PREDICT.
+    :param sample_with_replacement: Trues means randomly provide samples, false means sequentially provide samples.
     :return:
     """
-    x = None
-    y = None
+    # 1. Set up some internal parameters.
+    # Batch size has to be one, because we do a prediction every time a sample is given.
+    batch_size = 1
 
-    if observations is not None:
-        # Assuming all episodes have the same number of steps.
-        x = np.zeros((len(observations) * len(observations[0]), 6, 5, 7))
+    # 2. Converting the data.
+    if type(observations) is not list or \
+       type(actions) is not list or \
+       type(rewards) is not list:
+        raise Exception('Invalid input parameters should all be lists!')
+    elif type(observations[0]) is list:
+        list_of_lists = True
+        total_frames = sum([len(inner_list) for inner_list in observations])
+    elif type(observations[0]) is tuple:
+        list_of_lists = False
+        total_frames = len(observations[0])
+    else:
+        raise Exception('Elements in list observations do not have the correct type.')
+
+    x = np.zeros((total_frames, 6, 5, 7))
+    y = np.zeros((total_frames, 5))
+    y[:] = np.nan
+
+    if list_of_lists:
         counter = 0
         # Looping through episodes.
         for i in range(len(observations)):
             # Looping through steps in episodes.
-            for j in range(len(observations[0])):
+            for j in range(len(observations[i])):
                 board = observations[i][j][0]
                 finger = observations[i][j][1]
                 x[counter][:, :, 0][board == 0] = np.ones((6, 5))[board == 0]
@@ -175,11 +239,20 @@ def convert_input(observations=None, actions=None, rewards=None):
                 x[counter][:, :, 5][board == 5] = np.ones((6, 5))[board == 5]
                 x[counter][finger[0], finger[1], 6] = 1
                 counter += 1
+    else:
+        # Looping through steps in episodes.
+        for i in range(len(observations)):
+            board = observations[i][0]
+            finger = observations[i][1]
+            x[i][:, :, 0][board == 0] = np.ones((6, 5))[board == 0]
+            x[i][:, :, 1][board == 1] = np.ones((6, 5))[board == 1]
+            x[i][:, :, 2][board == 2] = np.ones((6, 5))[board == 2]
+            x[i][:, :, 3][board == 3] = np.ones((6, 5))[board == 3]
+            x[i][:, :, 4][board == 4] = np.ones((6, 5))[board == 4]
+            x[i][:, :, 5][board == 5] = np.ones((6, 5))[board == 5]
+            x[i][finger[0], finger[1], 6] = 1
 
-    if actions is not None and rewards is not None:
-        # Assuming all episodes have the same number of steps.
-        y = np.zeros((len(actions) * len(actions[0]), 5))
-        y[:] = np.nan
+    if list_of_lists:
         counter = 0
         # Looping through episodes.
         for i in range(len(actions)):
@@ -196,8 +269,36 @@ def convert_input(observations=None, actions=None, rewards=None):
                     y[counter][3] = rewards[i][j]
                 elif action == 'pass':
                     y[counter][4] = rewards[i][j]
-                else:
-                    raise Exception('Action {0} is invalid.'.format(action))
                 counter += 1
+    else:
+        # Looping through steps in episodes.
+        for i in range(len(actions)):
+                action = actions[i]
+                if action == 'left':
+                    y[i][0] = rewards[i]
+                elif action == 'right':
+                    y[i][1] = rewards[i]
+                elif action == 'up':
+                    y[i][2] = rewards[i]
+                elif action == 'down':
+                    y[i][3] = rewards[i]
+                elif action == 'pass':
+                    y[i][4] = rewards[i]
 
-    return x, y
+    # If we want to imitate experience replay.
+    if sample_with_replacement:
+        # TODO: Write this!
+        pass
+
+    # 3. Turning data into a Dataset and initialize the dataset.
+    dataset = tf.data.Dataset.from_tensor_slices((x, y))
+    if mode == tf.estimator.ModeKeys.TRAIN:
+        # Shuffle data in the training mode.
+        dataset = dataset.shuffle(buffer_size=len(x))
+        # Repeat the data indefinitely. Every repeat has a different shuffling.
+        dataset = dataset.repeat()
+    dataset = dataset.batch(batch_size)
+    iterator = dataset.make_one_shot_iterator()
+    x_sample, y_sample = iterator.get_next()
+
+    return x_sample, y_sample
