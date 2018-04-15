@@ -3,7 +3,7 @@ Reinforcement learning on [Puzzle & Dragons](https://play.google.com/store/apps/
 
 The project is still evolving but currently contains the following components:
 * OpenAI Gym like environment.
-* Tensorflow for the agent.
+* Tensorflow/Keras for the agent.
 * Training data generation.
 * Basic visualization.
 
