@@ -25,10 +25,10 @@ SOMEPATH = 'some_path'
 env = ppad.PAD()
 for _ in range(100):
     env.step(action=env.action_space.sample())
-env.visualize(path=SOMEPATH+'/random_sampling.gif')
+env.visualize(filename=SOMEPATH + '/random_sampling.gif')
 
 # Example 2: Visualize using the episode information.
 # Generate observations and actions using any method in the specified format.
 # Here we are generating them from "smart data" and step = -1 means terminate on zero combo.
 observations, actions, rewards = ppad.smart_data(boards=1, permutations=1, trajectories=1, steps=-1)
-episode2gif(observations, actions, path=SOMEPATH+'/smart_data.gif')
+episode2gif(observations, actions, filename=SOMEPATH + '/smart_data.gif')

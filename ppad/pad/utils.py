@@ -98,30 +98,30 @@ def detect_island(board, island, x, y, orb_type):
             detect_island(board, island, x - 1, y, orb_type)
 
 
-def episode2gif(observations=None, actions=None, path=None, shrink=3, episode=0, animate=True):
+def episode2gif(observations=None, actions=None, filename=None, shrink=3, episode=0, animate=True):
     """
     Note: One needs to have PPADPATH defined to be the root directory (P-PAD) of this repo.
     :param observations: The observations for either a list of episodes or a single episode.
     :param actions: The actions for either a list of episodes or a single episode.
-    :param path: The location where intermediate pngs and the final gif are stored.
+    :param filename: The location where intermediate pngs and the final gif are stored.
     :param shrink: Shrink the output image by this many folds along each dimension.
     :param episode: If observations and actions are list of episodes, specify which episode of those to visualize.
     :param animate: If true, output an animated GIF, it false, output the PNG of the last frame.
     """
     if type(observations) is not list or \
        type(actions) is not list or \
-       len(observations) is 0 or \
-       len(actions) is 0 or \
-       path is None:
+       len(observations) == 0 or \
+       len(actions) == 0 or \
+       filename is None:
         raise Exception('Invalid input parameters!')
     elif type(observations[0]) is list:
         if len(observations[episode]) < len(actions[episode]):
             raise Exception('len(observations[episode]) should be equal or smaller than len(actions[episode])!')
-        single_episode2gif(observations[episode], actions[episode], path, shrink, animate)
+        single_episode2gif(observations[episode], actions[episode], filename, shrink, animate)
     elif type(observations[0]) is tuple:
         if len(observations) < len(actions):
             raise Exception('len(observations) should be equal or smaller than len(actions)!')
-        single_episode2gif(observations, actions, path, shrink, animate)
+        single_episode2gif(observations, actions, filename, shrink, animate)
     else:
         raise Exception('Elements in list observations do not have the correct type.')
 

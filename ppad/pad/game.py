@@ -202,14 +202,14 @@ class PAD:
                 self.board[x, y] = col[y]
         # TODO: Apply the same update to enhanced and locked boards.
 
-    def visualize(self, path, shrink=3, animate=True):
+    def visualize(self, filename, shrink=3, animate=True):
         """
         Note: One needs to have PPADPATH defined to be the root directory (P-PAD) of this repo.
-        :param path: The location where intermediate pngs and the final gif are stored.
+        :param filename: The location where intermediate pngs and the final gif are stored.
         :param shrink: Shrink the output image by this many times along each dimension.
         :param animate: If true, output an animated GIF, it false, output the PNG of the first frame.
         """
-        pad_utils.episode2gif(observations=self.observations, actions=self.actions, path=path, shrink=shrink, animate=animate)
+        pad_utils.episode2gif(observations=self.observations, actions=self.actions, filename=filename, shrink=shrink, animate=animate)
 
     def fill_board(self, reset=False):
         """

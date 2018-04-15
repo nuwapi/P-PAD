@@ -1,9 +1,10 @@
 # P-PAD
-Reinforcement learning on Puzzle & Dragons.
+Reinforcement learning on [Puzzle & Dragons](https://play.google.com/store/apps/details?id=jp.gungho.padEN).
 
 The project is still evolving but currently contains the following components:
 * OpenAI Gym like environment.
-* Keras + Tensorflow for the agent.
+* Tensorflow/Keras for the agent.
+* Training data generation.
 * Basic visualization.
 
 ### Random sampling
@@ -18,7 +19,7 @@ Examples of solved boards:
 ![Perfect board 4](https://github.com/nuwapi/P-PAD/blob/master/visualizations/solved_board4.png)
 ![Perfect board 5](https://github.com/nuwapi/P-PAD/blob/master/visualizations/solved_board5.png)
 
-The training data generated from solved boards:
+Training data generated from solved boards:
 
 ![Smart data generation 1](https://github.com/nuwapi/P-PAD/blob/master/visualizations/smart_data.gif)
 
