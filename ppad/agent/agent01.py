@@ -65,7 +65,7 @@ class Agent01:
         ## Pre-processing
         # Convert inputs to numpy arrays to NN training.
         x, y = self.convert_input(observations, actions, rewards)
-        
+
         # Train using all samples one at a time.
         if not experience_replay:
             for _ in range(iterations):
@@ -87,13 +87,9 @@ class Agent01:
                                    callbacks=[self.tensorboard])
         # Train using batches of random samples from all trajectories.
         else:
-            # Initialize arrays for batch data.
-            x_batch = np.zeros((batch_size, 6, 5, 7))
-            y_batch = np.zeros((batch_size, 5))
-            
             # Requires manually handling epochs.
             for _ in range(iterations):
-                idxs = np.random.randint(0,x.shape[0],batch_size)
+                idxs = np.random.randint(0, x.shape[0], batch_size)
                 x_batch = x[idxs]
                 y_batch_actions = y[idxs]
                 
@@ -153,17 +149,27 @@ class Agent01:
         :param rewards: rewards[i][j] = float
         :return:
         """
-        x = None
-        y = None
+        if type(observations) is not list:
+            raise Exception('Obervations should be a list!')
+        elif type(observations[0]) is list:
+            list_of_lists = True
+            total_frames = sum([len(inner_list) for inner_list in observations])
+        elif type(observations[0]) is tuple:
+            list_of_lists = False
+            total_frames = len(observations[0])
+        else:
+            raise Exception('Elements in list observations do not have the correct type.')
 
-        if observations is not None:
-            # Assuming all episodes have the same number of steps.
-            x = np.zeros((len(observations) * len(observations[0]), 6, 5, 7))
+        x = np.zeros((total_frames, 6, 5, 7))
+        y = np.zeros((total_frames, 5))
+        y[:] = np.nan
+
+        if list_of_lists:
             counter = 0
             # Looping through episodes.
             for i in range(len(observations)):
                 # Looping through steps in episodes.
-                for j in range(len(observations[0])):
+                for j in range(len(observations[i])):
                     board = observations[i][j][0]
                     finger = observations[i][j][1]
                     x[counter][:, :, 0][board == 0] = np.ones((6, 5))[board == 0]
@@ -174,11 +180,20 @@ class Agent01:
                     x[counter][:, :, 5][board == 5] = np.ones((6, 5))[board == 5]
                     x[counter][finger[0], finger[1], 6] = 1
                     counter += 1
+        else:
+            # Looping through steps in episodes.
+            for i in range(len(observations)):
+                board = observations[i][0]
+                finger = observations[i][1]
+                x[i][:, :, 0][board == 0] = np.ones((6, 5))[board == 0]
+                x[i][:, :, 1][board == 1] = np.ones((6, 5))[board == 1]
+                x[i][:, :, 2][board == 2] = np.ones((6, 5))[board == 2]
+                x[i][:, :, 3][board == 3] = np.ones((6, 5))[board == 3]
+                x[i][:, :, 4][board == 4] = np.ones((6, 5))[board == 4]
+                x[i][:, :, 5][board == 5] = np.ones((6, 5))[board == 5]
+                x[i][finger[0], finger[1], 6] = 1
 
-        if actions is not None and rewards is not None:
-            # Assuming all episodes have the same number of steps.
-            y = np.zeros((len(actions) * len(actions[0]), 5))
-            y[:] = np.nan
+        if list_of_lists and actions:
             counter = 0
             # Looping through episodes.
             for i in range(len(actions)):
@@ -195,9 +210,21 @@ class Agent01:
                         y[counter][3] = rewards[i][j]
                     elif action == 'pass':
                         y[counter][4] = rewards[i][j]
-                    else:
-                        raise Exception('Action {0} is invalid.'.format(action))
                     counter += 1
+        elif actions:
+            # Looping through steps in episodes.
+            for i in range(len(actions)):
+                action = actions[i]
+                if action == 'left':
+                    y[i][0] = rewards[i]
+                elif action == 'right':
+                    y[i][1] = rewards[i]
+                elif action == 'up':
+                    y[i][2] = rewards[i]
+                elif action == 'down':
+                    y[i][3] = rewards[i]
+                elif action == 'pass':
+                    y[i][4] = rewards[i]
 
         return x, y
 

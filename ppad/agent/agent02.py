@@ -206,10 +206,8 @@ def input_fn(observations=None,
     batch_size = 1
 
     # 2. Converting the data.
-    if type(observations) is not list or \
-       type(actions) is not list or \
-       type(rewards) is not list:
-        raise Exception('Invalid input parameters should all be lists!')
+    if type(observations) is not list:
+        raise Exception('Obervations should be a list!')
     elif type(observations[0]) is list:
         list_of_lists = True
         total_frames = sum([len(inner_list) for inner_list in observations])
@@ -252,7 +250,7 @@ def input_fn(observations=None,
             x[i][:, :, 5][board == 5] = np.ones((6, 5))[board == 5]
             x[i][finger[0], finger[1], 6] = 1
 
-    if list_of_lists:
+    if list_of_lists and actions:
         counter = 0
         # Looping through episodes.
         for i in range(len(actions)):
@@ -270,7 +268,7 @@ def input_fn(observations=None,
                 elif action == 'pass':
                     y[counter][4] = rewards[i][j]
                 counter += 1
-    else:
+    elif actions:
         # Looping through steps in episodes.
         for i in range(len(actions)):
                 action = actions[i]
