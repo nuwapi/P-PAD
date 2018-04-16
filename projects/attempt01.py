@@ -44,7 +44,7 @@ for _ in range(episodes):
 
     # Keep the episode if there was any combo.
     if env.rewards[-1] > 0:
-        discounted_rewards = ppad.discount(rewards=env.rewards, gamma=0.9)
+        discounted_rewards = ppad.discount(rewards=env.rewards, gamma=0.9, log10=False)
         observations_list.append(list(env.observations))  # Don't need to save the end state.
         actions_list.append(list(env.actions))
         discounted_rewards_list.append(list(discounted_rewards))
