@@ -21,11 +21,11 @@ import ppad
 # 1. Set up.
 
 # Generate 100 random episodes.
-episodes = 1000
+episodes = 10
 # On average it takes 80+ steps to solve the board. We set the number of steps
 # per episode to 200 because we do random sampling. This number should probably
 # even be higher than this.
-steps = 50
+steps = 10
 
 env = ppad.PAD()
 agent = ppad.agent01()

@@ -55,8 +55,8 @@ class Agent01:
 
         # Initialize Tensorboard.
         self.tensorboard_path = tensorboard_path
-        self.tensorboard = keras.callbacks.TensorBoard(log_dir=tensorboard_path, histogram_freq=0, batch_size=32,
-                                                       write_graph=True, write_grads=False, write_images=False,
+        self.tensorboard = keras.callbacks.TensorBoard(log_dir=tensorboard_path, histogram_freq=10, batch_size=32,
+                                                       write_graph=False, write_grads=True, write_images=True,
                                                        embeddings_freq=0, embeddings_layer_names=None,
                                                        embeddings_metadata=None)
 
@@ -90,7 +90,8 @@ class Agent01:
                                    verbose=verbose,
                                    epochs=initial_epoch+1,
                                    initial_epoch=initial_epoch,
-                                   callbacks=[self.tensorboard])
+                                   callbacks=[self.tensorboard],
+                                   validation_data=(x, y))
         # Train using batches of random samples from all trajectories.
         else:
             # Requires manually handling epochs.
@@ -115,7 +116,8 @@ class Agent01:
                                verbose=verbose,
                                epochs=initial_epoch+1,
                                initial_epoch=initial_epoch,
-                               callbacks=[self.tensorboard])
+                               callbacks=[self.tensorboard],
+                               validation_data=(x_batch, y_batch))
         print('Done learning. Run:\n    tensorboard --logdir={0}\nto see your results.'.format(self.tensorboard_path))
 
     def action(self, observation):
