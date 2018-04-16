@@ -198,7 +198,7 @@ class Agent01:
             # Looping through episodes.
             for i in range(len(actions)):
                 # Looping through steps in episodes.
-                for j in range(len(actions[0])):
+                for j in range(len(actions[i])):
                     action = actions[i][j]
                     if action == 'left':
                         y[counter][0] = rewards[i][j]
