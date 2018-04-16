@@ -61,14 +61,18 @@ class Agent01:
                                                        embeddings_metadata=None)
 
     def learn(self, observations, actions, rewards, iterations, batch_size=32, 
-              experience_replay=True):
+              experience_replay=True, verbose=0):
         ## Pre-processing
         # Convert inputs to numpy arrays to NN training.
         x, y = self.convert_input(observations, actions, rewards)
+        # For metric generation.
+        initial_epoch = 0
 
         # Train using all samples one at a time.
         if not experience_replay:
             for _ in range(iterations):
+                # Epoch here actually correspond to the typical epoch.
+                initial_epoch += 1
                 # Numpy array for one sample.
                 x1 = np.zeros((1, 6, 5, 7))
                 y1 = np.zeros((1, 5))
@@ -83,12 +87,17 @@ class Agent01:
                     y1[0][np.isnan(y1[0])] = yp[0][np.isnan(y1[0])]
                     self.model.fit(x=x1,
                                    y=y1,
-                                   verbose=0,
+                                   verbose=verbose,
+                                   epochs=initial_epoch+1,
+                                   initial_epoch=initial_epoch,
                                    callbacks=[self.tensorboard])
         # Train using batches of random samples from all trajectories.
         else:
             # Requires manually handling epochs.
             for _ in range(iterations):
+                # Epoch here doesn't mean running through the dataset one time.
+                initial_epoch += 1
+
                 idxs = np.random.randint(0, x.shape[0], batch_size)
                 x_batch = x[idxs]
                 y_batch_actions = y[idxs]
@@ -97,13 +106,15 @@ class Agent01:
                 y_batch = self.model.predict(x_batch)
                 y_batch[~np.isnan(y_batch_actions)] = y_batch_actions[~np.isnan(y_batch_actions)]
                 # Minmum value should be zero. Speed up by changing negatives.
-                y_batch[y_batch<0] = 0.0
-                
+                y_batch[y_batch < 0] = 0.0
+
                 # Learn from these examples.
                 self.model.fit(x=x_batch,
                                y=y_batch,
                                batch_size=batch_size,
-                               verbose=0,
+                               verbose=verbose,
+                               epochs=initial_epoch+1,
+                               initial_epoch=initial_epoch,
                                callbacks=[self.tensorboard])
         print('Done learning. Run:\n    tensorboard --logdir={0}\nto see your results.'.format(self.tensorboard_path))
 

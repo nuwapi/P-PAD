@@ -21,11 +21,11 @@ import ppad
 # 1. Set up.
 
 # Generate 100 random episodes.
-episodes = 10
+episodes = 1000
 # On average it takes 80+ steps to solve the board. We set the number of steps
 # per episode to 200 because we do random sampling. This number should probably
 # even be higher than this.
-steps = 10
+steps = 50
 
 env = ppad.PAD()
 agent = ppad.agent01()
@@ -53,8 +53,9 @@ for _ in range(episodes):
 agent.learn(observations=observations_list,
             actions=actions_list,
             rewards=discounted_rewards_list,
-            iterations=1,
-            experience_replay=False)
+            iterations=10000,
+            experience_replay=True,
+            verbose=1)
 
 # 4. Predict and visualization.
 for _ in range(100):
