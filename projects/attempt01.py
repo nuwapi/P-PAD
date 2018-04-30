@@ -16,51 +16,93 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>
 """
 
-import ppad
+import ppad, os
+import numpy as np
 
-# 1. Set up.
+#### Key functions
+def random_trials(episodes, steps, gamma, log10):
+    ''' Generates data by taking random actions '''
+    observations_list, actions_list, rewards_list = [],[],[]
+    for _ in range(episodes):
+        env.reset()
+    
+        for _ in range(steps):
+            action = env.action_space.sample()
+            env.step(action)
+        env.step('pass')
+        env.rewards
 
-# Generate 100 random episodes.
-episodes = 10
-# On average it takes 80+ steps to solve the board. We set the number of steps
-# per episode to 200 because we do random sampling. This number should probably
-# even be higher than this.
-steps = 10
+        discounted_rewards = ppad.discount(rewards=env.rewards, gamma=gamma, log10=log10)
+        observations_list.append(list(env.observations)) 
+        actions_list.append(list(env.actions))
+        rewards_list.append(list(discounted_rewards))
+    return observations_list, rewards_list, actions_list
 
-env = ppad.PAD()
-agent = ppad.agent01()
 
+#### 1. Set up
+## Observations
 observations_list = []
 actions_list = []
-discounted_rewards_list = []
+rewards_list = []
+env = ppad.PAD()
 
-# 2. Sampling.
-for _ in range(episodes):
-    env.reset()
-    for _ in range(steps):
-        action = env.action_space.sample()
-        env.step(action)
-    env.step('pass')
+## Constants
+episodes = 100
+steps = 100 # On average it takes 80+ steps to solve the board. 
+batch_size = 32
+log10 = False
+gamma = 0.9
 
-    # Keep the episode if there was any combo.
-    if env.rewards[-1] > 0:
-        discounted_rewards = ppad.discount(rewards=env.rewards, gamma=0.9, log10=False)
-        observations_list.append(list(env.observations))  # Don't need to save the end state.
-        actions_list.append(list(env.actions))
-        discounted_rewards_list.append(list(discounted_rewards))
+## Agent
+agent = ppad.Agent01(learning_rate=0.0001, num_filters=128, 
+                tensorboard_path=os.path.join(os.getcwd(),'data/logs'))
 
-# 3. Learning.
+#### 2. Sampling
+## Random trials
+observations, rewards, actions = random_trials(episodes, steps, gamma=gamma, log10=log10)
+observations_list.extend(observations)
+rewards_list.extend(rewards)
+actions_list.extend(actions)
+
+## Just passes
+observations, rewards, actions = random_trials(episodes, 0, gamma=gamma, log10=log10)
+observations_list.extend(observations)
+rewards_list.extend(rewards)
+actions_list.extend(actions)
+
+## Smart data
+observations, actions, rewards = ppad.smart_data(5,5,5, gamma=gamma, log10=log10)
+observations_list.extend(observations)
+rewards_list.extend(rewards)
+actions_list.extend(actions)
+
+#### 3. Learning
+# Training
+print('Training...')
 agent.learn(observations=observations_list,
             actions=actions_list,
-            rewards=discounted_rewards_list,
-            iterations=10000,
+            rewards=rewards_list,
+            iterations=1000,
             experience_replay=True,
-            verbose=1)
+            verbose=0)
 
-# 4. Predict and visualization.
+# Validation - did the net learn anything?
+obs_batch, rew_batch, act_batch = [],[],[]
+idxs = np.random.randint(0,len(observations),batch_size)
+for idx in idxs:
+    step = np.random.randint(len(observations[idx]))
+    obs_batch.append(observations[idx][step])
+    rew_batch.append(rewards[idx][step])
+    act_batch.append(actions[idx][step])
+
+x_batch, y_batch = agent.convert_input([obs_batch], [act_batch], [rew_batch])
+print(agent.model.predict(x_batch))
+
+
+#### 4. Predict and visualize results
 for _ in range(100):
     observation = env.reset()
-    for _ in range(2):
+    for _ in range(10):
         action = agent.action(observation)
         observation, _, _, _ = env.step(action=action)
     print(env.actions)
