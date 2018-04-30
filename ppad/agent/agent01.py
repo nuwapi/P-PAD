@@ -62,6 +62,16 @@ class Agent01:
 
     def learn(self, observations, actions, rewards, iterations, batch_size=32, 
               experience_replay=True, verbose=0):
+        """
+        :param observations: Either a single trajectory of a list of trajectories.
+        :param actions: Either a single trajectory of a list of trajectories.
+        :param rewards: Either a single trajectory of a list of trajectories.
+        :param iterations: The number of batches to run. If experience_replay is True, use input batch_size, if False
+               batch size defaults to the entire training data.
+        :param batch_size: Used in experience_replay mode.
+        :param experience_replay: Let you randomly sample training data with replacement.
+        :param verbose: Verbose level for TensorFlow.
+        """
         ## Pre-processing
         # Convert inputs to numpy arrays to NN training.
         x, y = self.convert_input(observations, actions, rewards)
@@ -120,7 +130,7 @@ class Agent01:
                                validation_data=(x_batch, y_batch))
         print('Done learning. Run:\n    tensorboard --logdir={0}\nto see your results.'.format(self.tensorboard_path))
 
-    def action(self, observation):
+    def action(self, observation, verbose=0):
         observations = [[observation]]
         dim_h = observation[0].shape[0]
         dim_v = observation[0].shape[1]
@@ -136,6 +146,9 @@ class Agent01:
             invalid_action_list.append(3)  # Down.
 
         prediction = self.model.predict(self.convert_input(observations=observations)[0])
+        if verbose > 0:
+            print(prediction)
+
         for index in invalid_action_list:
             prediction[0][index] = -np.inf
         action_type = np.unravel_index(np.argmax(prediction[0], axis=None), prediction[0].shape)

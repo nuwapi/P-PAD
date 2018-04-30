@@ -18,7 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>
 
 import ppad
 
-agent = ppad.agent01()
+agent = ppad.Agent01()
 
 observations_list, actions_list, rewards_list = ppad.smart_data(boards=16, permutations=3, trajectories=10, steps=-1)
 
