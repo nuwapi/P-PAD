@@ -128,7 +128,7 @@ class Agent01:
                                initial_epoch=initial_epoch,
                                callbacks=[self.tensorboard],
                                validation_data=(x_batch, y_batch))
-        print('Done learning. Run:\n    tensorboard --logdir={0}\nto see your results.'.format(self.tensorboard_path))
+        # print('Done learning. Run:\n    tensorboard --logdir={0}\nto see your results.'.format(self.tensorboard_path))
 
     def action(self, observation, verbose=0):
         observations = [[observation]]
