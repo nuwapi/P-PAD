@@ -16,9 +16,10 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>
 """
 
-import ppad
-
 import numpy as np
+from importlib import reload
+import ppad
+ppad = reload(ppad)
 
 env = ppad.PAD()
 agent = ppad.Agent01()

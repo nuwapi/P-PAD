@@ -16,7 +16,9 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>
 """
 
+from importlib import reload
 import ppad
+ppad = reload(ppad)
 
 agent = ppad.Agent01()
 

@@ -16,8 +16,11 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>
 """
 
-import ppad, os
 import numpy as np
+from importlib import reload
+import ppad
+ppad = reload(ppad)
+
 
 #### Key functions
 def random_trials(episodes, steps, gamma, log10):
