@@ -39,6 +39,12 @@ def random_trials(episodes, steps, gamma, log10):
     return observations_list, rewards_list, actions_list
 
 
+#### Agent
+agent = ppad.Agent01(learning_rate=0.001, num_filters=128, conv_layers=2)
+                #tensorboard_path=os.path.join(os.getcwd(),'data/logs'))
+
+
+
 #### 1. Set up
 ## Observations
 observations_list = []
@@ -49,13 +55,11 @@ env = ppad.PAD()
 ## Constants
 episodes = 100
 steps = 100 # On average it takes 80+ steps to solve the board. 
+smart_dims = [10,10,10]
 batch_size = 32
 log10 = False
-gamma = 0.9
+gamma = 0.99
 
-## Agent
-agent = ppad.Agent01(learning_rate=0.0001, num_filters=128, 
-                tensorboard_path=os.path.join(os.getcwd(),'data/logs'))
 
 #### 2. Sampling
 ## Random trials
@@ -65,38 +69,41 @@ rewards_list.extend(rewards)
 actions_list.extend(actions)
 
 ## Just passes
-observations, rewards, actions = random_trials(episodes, 0, gamma=gamma, log10=log10)
+observations, rewards, actions = random_trials(episodes*10, 0, gamma=gamma, log10=log10)
 observations_list.extend(observations)
 rewards_list.extend(rewards)
 actions_list.extend(actions)
 
 ## Smart data
-observations, actions, rewards = ppad.smart_data(5,5,5, gamma=gamma, log10=log10)
+observations, actions, rewards = ppad.smart_data(smart_dims[0], smart_dims[1],
+                                                 smart_dims[2], gamma=gamma, 
+                                                 log10=log10)
 observations_list.extend(observations)
 rewards_list.extend(rewards)
 actions_list.extend(actions)
 
 #### 3. Learning
-# Training
-print('Training...')
-agent.learn(observations=observations_list,
-            actions=actions_list,
-            rewards=rewards_list,
-            iterations=1000,
-            experience_replay=True,
-            verbose=0)
-
-# Validation - did the net learn anything?
-obs_batch, rew_batch, act_batch = [],[],[]
-idxs = np.random.randint(0,len(observations),batch_size)
-for idx in idxs:
-    step = np.random.randint(len(observations[idx]))
-    obs_batch.append(observations[idx][step])
-    rew_batch.append(rewards[idx][step])
-    act_batch.append(actions[idx][step])
-
-x_batch, y_batch = agent.convert_input([obs_batch], [act_batch], [rew_batch])
-print(agent.model.predict(x_batch))
+for iteration in range(1,10):
+    # Training
+    print('Training...')
+    agent.learn(observations=observations_list,
+                actions=actions_list,
+                rewards=rewards_list,
+                iterations=10000,
+                experience_replay=True,
+                verbose=0)
+    
+    # Validation - did the net learn anything?
+    obs_batch, rew_batch, act_batch = [],[],[]
+    idxs = np.random.randint(0,len(observations),batch_size)
+    for idx in idxs:
+        step = np.random.randint(len(observations[idx]))
+        obs_batch.append(observations[idx][step])
+        rew_batch.append(rewards[idx][step])
+        act_batch.append(actions[idx][step])
+    
+    x_batch, y_batch = agent.convert_input([obs_batch], [act_batch], [rew_batch])
+    print(agent.model.predict(x_batch))
 
 
 #### 4. Predict and visualize results
