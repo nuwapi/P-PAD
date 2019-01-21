@@ -21,6 +21,9 @@ from importlib import reload
 import ppad
 ppad = reload(ppad)
 
+
+# FIXME: DEPRECATED!
+
 env = ppad.PAD()
 agent = ppad.Agent01()
 

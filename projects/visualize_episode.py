@@ -22,13 +22,15 @@ ppad = reload(ppad)
 from ppad.pad.utils import episode2gif
 
 
-SOMEPATH = 'some_path'
+SOMEPATH = 'yourpath'
 
 # Example 1: Visualize directly from the environment itself.
 env = ppad.PAD()
 for _ in range(100):
-    env.step(action=env.action_space.sample())
+    env.step(action=env.action_space.sample(), verbose=True)
 env.visualize(filename=SOMEPATH + '/random_sampling.gif')
+
+env.step(action='pass', verbose=True)
 
 # Example 2: Visualize using the episode information.
 # Generate observations and actions using any method in the specified format.

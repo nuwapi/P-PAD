@@ -111,4 +111,4 @@ default_render_dict = {-1: (' ', ''),
                        9: ('b', '\033[1;94;16m')}
 
 # By default, it takes at least 3 in a row/col to count as a combo. Some leaders only cancel 4.
-c = 3
+match_n = 3

@@ -20,6 +20,9 @@ from importlib import reload
 import ppad
 ppad = reload(ppad)
 
+
+# FIXME: DEPRECATED!
+
 agent = ppad.Agent01()
 
 observations_list, actions_list, rewards_list = ppad.smart_data(boards=16, permutations=3, trajectories=10, steps=-1)

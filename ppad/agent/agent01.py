@@ -152,15 +152,15 @@ class Agent01:
 
     def action(self, observation, verbose=0):
         observations = [[observation]]
-        dim_h = observation[0].shape[0]
-        dim_v = observation[0].shape[1]
+        dim_col = observation[0].shape[0]
+        dim_row = observation[0].shape[1]
         this_finger = observation[1]
         invalid_action_list = []
         if this_finger[0] <= 0:
             invalid_action_list.append(0)  # Left.
-        if this_finger[0] >= dim_h - 1:
+        if this_finger[0] >= dim_col - 1:
             invalid_action_list.append(1)  # Right.
-        if this_finger[1] >= dim_v - 1:
+        if this_finger[1] >= dim_row - 1:
             invalid_action_list.append(2)  # Up.
         if this_finger[1] <= 0:
             invalid_action_list.append(3)  # Down.

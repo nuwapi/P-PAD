@@ -22,6 +22,8 @@ import ppad
 ppad = reload(ppad)
 
 
+# FIXME: DEPRECATED!
+
 #### Key functions
 def random_trials(episodes, steps, gamma, log10):
     ''' Generates data by taking random actions '''
@@ -33,7 +35,6 @@ def random_trials(episodes, steps, gamma, log10):
             action = env.action_space.sample()
             env.step(action)
         env.step('pass')
-        env.rewards
 
         discounted_rewards = ppad.discount(rewards=env.rewards, gamma=gamma, log10=log10)
         observations_list.append(list(env.observations)) 

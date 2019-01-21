@@ -26,9 +26,19 @@ import ppad.pad.utils as pad_utils
 
 
 class PAD:
+    """
+    Board orientation:
+               col
+           0 ------> y
+           |
+       row |
+           |
+          \/
+           x
+    """
     def __init__(self,
-                 dim_h=6,
-                 dim_v=5,
+                 dim_row=5,
+                 dim_col=6,
                  skyfall=parameters.default_skyfall,
                  skyfall_locked=parameters.default_skyfall_locked,
                  skyfall_enhanced=parameters.default_skyfall_enhanced,
@@ -52,18 +62,18 @@ class PAD:
         for prob in skyfall_enhanced:
             if prob < 0 or prob > 1:
                 raise Exception('ERROR: Enhanced orb probability is between 0 and 1!')
-        if dim_h < 0 or dim_v < 0:
+        if dim_col < 0 or dim_row < 0:
             raise Exception('ERROR: Board dimensions should be positive integers!')
-        if dim_h*dim_v < 13:
+        if dim_col*dim_row < 13:
             raise Exception('ERROR: The board should allow at least 13 orbs. Please increase board size!')
 
         # Initialize.
         # Seed random number generator.
         random.seed(datetime.now())
-        # The horizontal length of the board.
-        self.dim_h = dim_h
         # The vertical length of the board.
-        self.dim_v = dim_v
+        self.dim_row = dim_row
+        # The horizontal length of the board.
+        self.dim_col = dim_col
         # The skyfall probabilities of different orb types.
         self.skyfall = skyfall
         # The locked orb probability for each orb type.
@@ -75,11 +85,11 @@ class PAD:
         # All player and enemy buffs and debuffs. This should be a list of some sort.
         self.buff = buff
         # The orb identities of the board. See fill_board() for details.
-        self.board = -1 * np.ones((self.dim_h, self.dim_v), dtype=int)
+        self.board = -1 * np.ones((self.dim_row, self.dim_col), dtype=int)
         # 0 means not locked, 1 means locked.
-        self.locked = np.zeros((self.dim_h, self.dim_v), dtype=int)
+        self.locked = np.zeros((self.dim_row, self.dim_col), dtype=int)
         # 0 means not enhanced, 1 means enhanced.
-        self.enhanced = np.zeros((self.dim_h, self.dim_v), dtype=int)
+        self.enhanced = np.zeros((self.dim_row, self.dim_col), dtype=int)
         # Finger numpy array.
         self.finger = np.zeros(2, dtype=int)
         # Information about player's team.
@@ -93,7 +103,7 @@ class PAD:
         self.render_dict = parameters.default_render_dict
 
         # The following five variables are used to store the game state sequence for the current episode.
-        # List of dim_h by dim_v numpy arrays.
+        # List of dim_row by dim_col numpy arrays.
         self.boards = []
         # List of 2 by 1 numpy arrays.
         self.fingers = []
@@ -104,7 +114,7 @@ class PAD:
         # List of floats.
         self.rewards = []
         # The action space for this environment.
-        self.action_space = player.PlayerAction(finger=self.finger, dim_h=self.dim_h, dim_v=self.dim_v)
+        self.action_space = player.PlayerAction(finger=self.finger, dim_row=self.dim_row, dim_col=self.dim_col)
 
         # Initialize game state.
         self.reset(board=board, finger=finger)
@@ -114,28 +124,28 @@ class PAD:
         Swap two orbs on all boards (specified in self.swap) given the action.
         :param action: left, right, up, down
         """
-        if action == 'left':
+        if action == 'up':
             target_x = self.finger[0] - 1
             target_y = self.finger[1]
             if target_x >= 0:
                 self.swap(self.finger[0], self.finger[1], target_x, target_y, True)
             else:
                 return 'rejected'
-        elif action == 'right':
+        elif action == 'down':
             target_x = self.finger[0] + 1
             target_y = self.finger[1]
-            if target_x <= self.dim_h - 1:
+            if target_x <= self.dim_row - 1:
                 self.swap(self.finger[0], self.finger[1], target_x, target_y, True)
             else:
                 return 'rejected'
-        elif action == 'up':
+        elif action == 'right':
             target_x = self.finger[0]
             target_y = self.finger[1] + 1
-            if target_y <= self.dim_v - 1:
+            if target_y <= self.dim_col - 1:
                 self.swap(self.finger[0], self.finger[1], target_x, target_y, True)
             else:
                 return 'rejected'
-        elif action == 'down':
+        elif action == 'left':
             target_x = self.finger[0]
             target_y = self.finger[1] - 1
             if target_y >= 0:
@@ -192,14 +202,21 @@ class PAD:
         """
         Move all orbs vertically downwards to fill in empty spaces.
         """
-        for x in range(self.dim_h):
+        # Handle one column at a time.
+        for y in range(self.dim_col):
+            # What is left in the current column?
             col = []
-            for y in range(self.dim_v):
+            for x in range(self.dim_row):
                 if self.board[x, y] != -1:
                     col.append(self.board[x, y])
-            self.board[x, :] = -1
-            for y in range(len(col)):
-                self.board[x, y] = col[y]
+
+            # Reset the column.
+            self.board[:, y] = -1
+
+            # Fill in what is left.
+            num_canceled = self.dim_row - len(col)
+            for x in range(len(col)):
+                self.board[x + num_canceled, y] = col[x]
         # TODO: Apply the same update to enhanced and locked boards.
 
     def visualize(self, filename, shrink=3, animate=True):
@@ -243,14 +260,13 @@ class PAD:
             board = self.board
 
         print('+-----------+')
-        for y in range(self.dim_v):
-            reverse_y = self.dim_v - 1 - y
-            if y > 0:
+        for x in range(self.dim_row):
+            if x > 0:
                 print('|-----------|')
             print_str = '|'
-            for x in range(self.dim_h):
-                key = board[x, reverse_y]
-                if x == self.finger[0] and reverse_y == self.finger[1]:
+            for y in range(self.dim_col):
+                key = board[x, y]
+                if x == self.finger[0] and y == self.finger[1]:
                     print_str += self.render_dict[key][0] + '|'
                 else:
                     print_str += self.render_dict[key][1] + self.render_dict[key][0] + '\033[0m' + '|'
@@ -287,8 +303,8 @@ class PAD:
         else:
             self.board = np.copy(board)
         if finger is None:
-            self.finger[0] = random.randint(0, self.dim_h - 1)
-            self.finger[1] = random.randint(0, self.dim_v - 1)
+            self.finger[0] = random.randint(0, self.dim_row - 1)
+            self.finger[1] = random.randint(0, self.dim_col - 1)
         else:
             self.finger = np.copy(finger)
 
@@ -324,6 +340,10 @@ class PAD:
             all_combos = []
             # Repeat the combo detection until nothing more can be canceled.
             while True:
+                if verbose is True:
+                    print('Board before combo canceling:')
+                    self.render()
+
                 combos = pad_utils.cancel(self.board)
                 if verbose is True:
                     print('Board after combo canceling:')
@@ -355,6 +375,10 @@ class PAD:
         else:
             comment = self.apply_action(action)
             if comment == 'accepted':
+                if verbose is True:
+                    print('Action: {0}. Board after orb move:'.format(action))
+                    self.render()
+
                 self.action_space.previous_action = action
             else:
                 print('Invalid move, you cannot move off the board!')

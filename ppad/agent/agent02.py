@@ -46,7 +46,7 @@ config = tf.estimator.RunConfig()
 
 def model_fn(features, labels, mode, params):
     """
-    :param features: Features. x should be an numpy array with dimensions [batch_size, p.dim_h, p.dim_v, p.channels].
+    :param features: Features. x should be an numpy array with dimensions [batch_size, p.dim_col, p.dim_row, p.channels].
     :param y: Labels.
     :param mode: Train, eval or predict.
     :param p: Basic parameters and some non-tunable hyperparameters.
@@ -54,8 +54,8 @@ def model_fn(features, labels, mode, params):
     :return:
     """
     # Basic parameters and some non-tunable hyperparameters.
-    p = tf.contrib.training.HParams(dim_h=6,  # The width of the board. Agent 02 only deals with 6 by 5 boards.
-                                    dim_v=5,  # The height of the board. Agent 02 only deals with 6 by 5 boards.
+    p = tf.contrib.training.HParams(dim_col=6,  # The width of the board. Agent 02 only deals with 6 by 5 boards.
+                                    dim_row=5,  # The height of the board. Agent 02 only deals with 6 by 5 boards.
                                     channels=7,  # 6 colors plus finger position.
                                     action_space_size=5,
                                     # The number of all of the possible actions (left, right, top, down, pass).
@@ -63,8 +63,8 @@ def model_fn(features, labels, mode, params):
     # Set up constant tensors.
     one = tf.constant(1, dtype=tf.float32)
     zero = tf.constant(0, dtype=tf.float32)
-    dim_h = tf.constant(p.dim_h, dtype=tf.float32)
-    dim_v = tf.constant(p.dim_v, dtype=tf.float32)
+    dim_col = tf.constant(p.dim_col, dtype=tf.float32)
+    dim_row = tf.constant(p.dim_row, dtype=tf.float32)
 
     # Always reuse variables if scope 'agent02' is not empty.
     # If we did not initialize all of the necessary variables Tensorflow will throw an error.
@@ -79,7 +79,7 @@ def model_fn(features, labels, mode, params):
     # Define a scope for reusing the neural network weights.
     with tf.variable_scope('agent02', reuse=reuse):
         # Input.
-        features = tf.reshape(features, [-1, p.dim_h, p.dim_v, p.channels], name='x')
+        features = tf.reshape(features, [-1, p.dim_col, p.dim_row, p.channels], name='x')
 
         # Convolution layer 1.
         conv1 = tf.layers.conv2d(
@@ -148,9 +148,9 @@ def model_fn(features, labels, mode, params):
             invalid_action_list = []
             if tf.less_equal(this_finger[0], zero):
                 invalid_action_list.append(0)  # Left.
-            if tf.greater_equal(this_finger[0], dim_h - 1):
+            if tf.greater_equal(this_finger[0], dim_col - 1):
                 invalid_action_list.append(1)  # Right.
-            if tf.greater_equal(this_finger[1], dim_v - 1):
+            if tf.greater_equal(this_finger[1], dim_row - 1):
                 invalid_action_list.append(2)  # Up.
             if tf.less_equal(this_finger[1], zero):
                 invalid_action_list.append(3)  # Down.
