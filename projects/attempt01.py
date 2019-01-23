@@ -114,6 +114,6 @@ for iteration in range(1,10):
 for _ in range(100):
     observation = env.reset()
     for _ in range(10):
-        action = agent.action(observation)
+        action = agent.act(observation)
         observation, _, _, _ = env.step(action=action)
     print(env.actions)

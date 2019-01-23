@@ -16,264 +16,189 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>
 """
 
-import keras
-from keras.layers import Conv2D, Dense, Flatten
 import numpy as np
+import tensorflow as tf
 
 
 class Agent01:
-    def __init__(self, num_filters=32, kernel_len=3, dense_units=64,
-                 learning_rate = 0.01, conv_layers=2, dense_layers=2,
+    def __init__(self,
+                 sess,
+                 st_shape=(5, 6, 7),
+                 tg_shape=(5,),
+                 conv_layers=((3, 32), (3, 32)),
+                 dense_layers=(64, 5),
+                 learning_rate=0.01,
                  tensorboard_path=None):
-        # Basic parameters.
-        input_shape = (6, 5, 7)  # 6 by 5 board with 7 channels (5 colors plus heal and finger position).
-        num_classes = 5  # left, right, up, down and pass.
-        if type(kernel_len) is int:
-            kernel_len = [kernel_len]*conv_layers
-        
-        # Initialize model.
-        self.model = keras.models.Sequential()
-        for i in range(conv_layers):
-            self.model.add(Conv2D(filters=num_filters,
-                                  kernel_size=(kernel_len[i], kernel_len[i]),
-                                  activation='relu',
-                                  input_shape=input_shape,
-                                  kernel_initializer=keras.initializers.RandomNormal()))
-        self.model.add(Flatten())
-        
-        for i in range(dense_layers):
-            self.model.add(Dense(units=dense_units,
-                                 activation='relu',
-                                 kernel_initializer=keras.initializers.RandomNormal()))
-            self.model.add(keras.layers.Dropout(rate=0.5))
-        
-        self.model.add(Dense(units=num_classes,
-                             kernel_initializer=keras.initializers.RandomNormal()))
-        self.model.compile(loss=keras.losses.mean_squared_error,
-                           optimizer=keras.optimizers.Adam(lr=learning_rate),
-                           metrics=['mae'])
+        """
+
+        :param sess: TensorFlow session.
+        :param st_shape: State shape, 5 by 6 board with 7 channels (5 colors plus heal and finger position).
+        :param tg_shape: Target shape, left, right, up, down and pass.
+        :param conv_layers: Tuple of kernel lengths. The length of the tuple equals to the number of conv layers to use.
+        :param dense_layers: Tuple of dense layer units. The length of the tuple equals to the number of dense layers to use.
+        :param learning_rate: The learning rate.
+        :param tensorboard_path: Optional. Where to save tensorboard logs.
+        """
+        self.sess = sess
+        self.st_shape = st_shape
+        self.tg_shape = tg_shape
+        self.conv_layers = conv_layers
+        self.dense_layers = dense_layers
+        self.learning_rate = learning_rate
+        self.num_conv_layers = len(conv_layers)
+        self.num_dense_layers = len(dense_layers)
+        self.tensorboard_path = tensorboard_path
+
+        if self.dense_layers[-1] != self.tg_shape[0]:
+            raise Exception('ERROR: The last dense layer needs to have the shape of the target!')
+
+        # Initialize models A and B.
+        self.state_A, self.target_A, self.q_value_A, self.loss_A = self.initialize_model(scope='model_A')
+        self.state_B, self.target_B, self.q_value_B, self.loss_B = self.initialize_model(scope='model_B')
+
+        # Set up optimizer for model A.
+        self.optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
+        gradients, variables = zip(*self.optimizer.compute_gradients(self.loss_A))
+        self.gradients = zip(gradients, variables)
+        self.training_operation = self.optimizer.apply_gradients(self.gradients)
+
+        # Set up a saver to save the graph (both models A and B).
+        self.saver = tf.train.Saver(tf.global_variables())
 
         # Initialize Tensorboard.
-        self.tensorboard_path = tensorboard_path
         if tensorboard_path is not None:
-            self.tensorboard = keras.callbacks.TensorBoard(log_dir=tensorboard_path, histogram_freq=10, batch_size=32,
-                                                           write_graph=False, write_grads=True, write_images=True,
-                                                           embeddings_freq=0, embeddings_layer_names=None,
-                                                           embeddings_metadata=None)
+            # TODO: Add tensorboard.
+            self.tensorboard = None
         else:
             self.tensorboard = None
 
-    def learn(self, observations, actions, rewards, iterations, batch_size=32, 
-              experience_replay=True, verbose=0):
-        """
-        :param observations: Either a single trajectory of a list of trajectories.
-        :param actions: Either a single trajectory of a list of trajectories.
-        :param rewards: Either a single trajectory of a list of trajectories.
-        :param iterations: The number of batches to run. If experience_replay is True, use input batch_size, if False
-               batch size defaults to the entire training data.
-        :param batch_size: Used in experience_replay mode.
-        :param experience_replay: Let you randomly sample training data with replacement.
-        :param verbose: Verbose level for TensorFlow.
-        """
-        ## Pre-processing
-        # Convert inputs to numpy arrays to NN training.
-        x, y = self.convert_input(observations, actions, rewards)
-        # For metric generation.
-        initial_epoch = 0
+    def initialize_model(self, scope='model_A'):
+        with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
+            # Define input data. The batch size is undetermined.
+            state = tf.placeholder(tf.float32, shape=[None] + list(self.st_shape), name='state')
+            target = tf.placeholder(tf.float32, shape=[None] + list(self.tg_shape), name='target')
 
-        # Train using all samples one at a time.
-        if not experience_replay:
-            for _ in range(iterations):
-                # Epoch here actually correspond to the typical epoch.
-                initial_epoch += 1
-                # Numpy array for one sample.
-                x1 = np.zeros((1, 6, 5, 7))
-                y1 = np.zeros((1, 5))
-                    
-                # For each state-action pair. 
-                for i in range(len(x)):
-                    x1[0] = x[i]
-                    y1[0] = y[i]
-                    yp = self.model.predict(x1)
-                    # For the actions that were not chosen, assign their reward value to what the neural net predicts.
-                    # Effectively, the neural net doesn't learn from un-chosen actions.
-                    y1[0][np.isnan(y1[0])] = yp[0][np.isnan(y1[0])]
-                    if self.tensorboard is not None:
-                        self.model.fit(x=x1,
-                                       y=y1,
-                                       verbose=verbose,
-                                       epochs=initial_epoch+1,
-                                       initial_epoch=initial_epoch,
-                                       callbacks=[self.tensorboard],
-                                       validation_data=(x, y))
-                    else:
-                        self.model.fit(x=x1,
-                                   y=y1,
-                                   verbose=verbose,
-                                   epochs=initial_epoch+1,
-                                   initial_epoch=initial_epoch,
-                                   validation_data=(x, y))
-        # Train using batches of random samples from all trajectories.
+            # Format: [batch, height, width, channels].
+            conv_layer_in = state
+            for i in range(len(self.conv_layers)):
+                in_channels = tf.shape(conv_layer_in)[-1]
+                conv_layer_out = tf.nn.conv2d(
+                    input=conv_layer_in,
+                    filter=[self.conv_layers[i][0], self.conv_layers[i][0], in_channels, self.conv_layers[i][1]],
+                    strides = [1] + [1] * len(self.st_shape),
+                    padding='VALID',
+                    name='model/conv' + str(i)
+                )
+                conv_layer_in = conv_layer_out
+
+            dense_layer_in = tf.contrib.layers.flatten(conv_layer_out, scope='model/conv_flatten')
+            for i in range(len(self.dense_layers)):
+                dense_layer_out = tf.layers.dense(
+                    inputs=dense_layer_in,
+                    units=self.dense_layers[i],
+                    name='model/dense' + str(i)
+                )
+                dense_layer_in = dense_layer_out
+
+            q_value = dense_layer_out
+            loss = tf.reduce_mean(tf.squared_difference(q_value, target))
+
+            return state, target, q_value, loss
+
+    def train(self, boards, fingers, targets):
+        """
+        """
+        states = self.board_finger_to_state(boards, fingers)
+        inputs = {self.state_A.name: states, self.target_A.name: targets}
+        fetches = [self.training_operation, self.q_value_A, self.loss_A]
+        _, q_value, loss = self.sess.run(fetches=fetches, feed_dict=inputs)
+
+        return loss
+
+    def predict(self, batch_state, batch_target, model='A'):
+        if model == 'A':
+            state_tensor = self.state_A
+            target_tensor = self.target_A
+            q_value_tensor = self.q_value_A
+        elif model == 'B':
+            state_tensor = self.state_B
+            target_tensor = self.target_B
+            q_value_tensor = self.q_value_B
         else:
-            # Requires manually handling epochs.
-            for _ in range(iterations):
-                # Epoch here doesn't mean running through the dataset one time.
-                initial_epoch += 1
+            raise Exception('ERROR: Model name has to be either A or B!')
 
-                idxs = np.random.randint(0, x.shape[0], batch_size)
-                x_batch = x[idxs]
-                y_batch_actions = y[idxs]
-                
-                # Predict actions not taken so we do not learn from them.
-                y_batch = self.model.predict(x_batch)
-                y_batch[~np.isnan(y_batch_actions)] = y_batch_actions[~np.isnan(y_batch_actions)]
-                # Minmum value should be zero. Speed up by changing negatives.
-                y_batch[y_batch < 0] = 0.0
+        inputs = {state_tensor.name: batch_state, target_tensor.name: batch_target}
+        q_value_predictions = self.sess.run(fetches=[q_value_tensor], feed_dict=inputs)[0]
 
-                # Learn from these examples.
-                if self.tensorboard is not None:
-                    self.model.fit(x=x_batch,
-                                   y=y_batch,
-                                   batch_size=batch_size,
-                                   verbose=verbose,
-                                   epochs=initial_epoch+1,
-                                   initial_epoch=initial_epoch,
-                                   callbacks=[self.tensorboard],
-                                   validation_data=(x_batch, y_batch))
-                else:
-                    self.model.fit(x=x_batch,
-                                   y=y_batch,
-                                   batch_size=batch_size,
-                                   verbose=verbose,
-                                   epochs=initial_epoch+1,
-                                   initial_epoch=initial_epoch,
-                                   validation_data=(x_batch, y_batch))
-        # print('Done learning. Run:\n    tensorboard --logdir={0}\nto see your results.'.format(self.tensorboard_path))
+        return q_value_predictions
 
-    def action(self, observation, verbose=0):
-        observations = [[observation]]
-        dim_col = observation[0].shape[0]
-        dim_row = observation[0].shape[1]
-        this_finger = observation[1]
-        invalid_action_list = []
-        if this_finger[0] <= 0:
-            invalid_action_list.append(0)  # Left.
-        if this_finger[0] >= dim_col - 1:
-            invalid_action_list.append(1)  # Right.
-        if this_finger[1] >= dim_row - 1:
-            invalid_action_list.append(2)  # Up.
-        if this_finger[1] <= 0:
-            invalid_action_list.append(3)  # Down.
+    def act(self, board, finger, target, model='A', method='max'):
+        """
+        Ask the agent to product an action based on the given state.
+        :param board: Numpy array of size (1, 5, 6). 1 for batch size 1.
+        :param finger: Numpy array of size (1, 2).
+        :param target: Numpy array of size (1, 5).
+        :param model: A or B.
+        :param method: How to turn q value array into an action.
+        :return: The best action to take given the state.
+        """
+        state = self.board_finger_to_state(board, finger)
+        q_value_predictions = self.predict(state, target, model)[0]
 
-        prediction = self.model.predict(self.convert_input(observations=observations)[0])
-        if verbose > 0:
-            print(prediction)
+        if str(method).lower() == 'max':
+            minimum = np.min(q_value_predictions)
+            if finger[0, 0] == 0:
+                q_value_predictions[0] = minimum - 1  # Can't go up.
+            elif finger[0, 0] == self.st_shape[0] - 1:
+                q_value_predictions[1] = minimum - 1  # Can't go down.
+            if finger[0, 1] == 0:
+                q_value_predictions[2] = minimum - 1  # Can't go left.
+            elif finger[0, 1] == self.st_shape[1] - 1:
+                q_value_predictions[3] = minimum - 1  # Can't go right.
 
-        for index in invalid_action_list:
-            prediction[0][index] = -np.inf
-        action_type = np.unravel_index(np.argmax(prediction[0], axis=None), prediction[0].shape)
-        action_type = int(action_type[0])
-        if action_type == 0:
-            return 'left'
-        elif action_type == 1:
-            return 'right'
-        elif action_type == 2:
+            action = np.argmax(q_value_predictions)
+        else:
+            raise Exception('ERROR: Unknown action method!')
+        # TODO: Epsilon greedy, Boltzmann.
+        # probabilities = tf.nn.softmax(q_value, axis=-1, name='softmax')
+
+        if action == 0:
             return 'up'
-        elif action_type == 3:
+        elif action == 1:
             return 'down'
-        elif action_type == 4:
+        elif action == 2:
+            return 'left'
+        elif action == 3:
+            return 'right'
+        elif action == 4:
             return 'pass'
         else:
-            raise Exception('Action type {0} is invalid.'.format(action_type))
+            raise Exception('Action type {0} is invalid.'.format(action))
 
-    @staticmethod
-    def convert_input(observations=None, actions=None, rewards=None):
+    def copy_B_to_A(self):
+        pass
+
+    def board_finger_to_state(self, boards, fingers):
         """
-        Convert the output of the environment into Tensorflow usable input.
-        :param observations: observations[i][j] = (np_array(6,5), np_array(2))
-        :param actions: actions[i][j] = string
-        :param rewards: rewards[i][j] = float
-        :return:
+        Convert a batch of states into TensorFlow usable format.
+        :param boards: Numpy array, e.g. (batch_size, 5, 6).
+        :param fingers: Numpy array, e.g. (batch_size, 2)
+        :return: The state.
         """
-        if type(observations) is not list:
-            raise Exception('Obervations should be a list!')
-        elif type(observations[0]) is list:
-            list_of_lists = True
-            total_frames = sum([len(inner_list) for inner_list in observations])
-        elif type(observations[0]) is tuple:
-            list_of_lists = False
-            total_frames = len(observations[0])
-        else:
-            raise Exception('Elements in list observations do not have the correct type.')
+        batch_size = len(boards)
+        # TODO: Now we fix the number of channels to 7, but in the future we should add poison, bomb etc.
+        states = np.zeros((batch_size, self.st_shape[0], self.st_shape[1], self.st_shape[2]))
 
-        x = np.zeros((total_frames, 6, 5, 7))
-        y = np.zeros((total_frames, 5))
-        y[:] = np.nan
+        # Loop through the whole batch.
+        for i in range(batch_size):
+            board = boards[i, :]
+            finger = fingers[i, :]
+            states[i, :, :, 0][board == 0] = np.ones((5, 6))[board == 0]
+            states[i, :, :, 0][board == 1] = np.ones((5, 6))[board == 1]
+            states[i, :, :, 0][board == 2] = np.ones((5, 6))[board == 2]
+            states[i, :, :, 0][board == 3] = np.ones((5, 6))[board == 3]
+            states[i, :, :, 0][board == 4] = np.ones((5, 6))[board == 4]
+            states[i, :, :, 0][board == 5] = np.ones((5, 6))[board == 5]
+            states[i, finger[0], finger[1], 6] = 1
 
-        if list_of_lists:
-            counter = 0
-            # Looping through episodes.
-            for i in range(len(observations)):
-                # Looping through steps in episodes.
-                for j in range(len(observations[i])):
-                    board = observations[i][j][0]
-                    finger = observations[i][j][1]
-                    x[counter][:, :, 0][board == 0] = np.ones((6, 5))[board == 0]
-                    x[counter][:, :, 1][board == 1] = np.ones((6, 5))[board == 1]
-                    x[counter][:, :, 2][board == 2] = np.ones((6, 5))[board == 2]
-                    x[counter][:, :, 3][board == 3] = np.ones((6, 5))[board == 3]
-                    x[counter][:, :, 4][board == 4] = np.ones((6, 5))[board == 4]
-                    x[counter][:, :, 5][board == 5] = np.ones((6, 5))[board == 5]
-                    x[counter][finger[0], finger[1], 6] = 1
-                    counter += 1
-        else:
-            # Looping through steps in episodes.
-            for i in range(len(observations)):
-                board = observations[i][0]
-                finger = observations[i][1]
-                x[i][:, :, 0][board == 0] = np.ones((6, 5))[board == 0]
-                x[i][:, :, 1][board == 1] = np.ones((6, 5))[board == 1]
-                x[i][:, :, 2][board == 2] = np.ones((6, 5))[board == 2]
-                x[i][:, :, 3][board == 3] = np.ones((6, 5))[board == 3]
-                x[i][:, :, 4][board == 4] = np.ones((6, 5))[board == 4]
-                x[i][:, :, 5][board == 5] = np.ones((6, 5))[board == 5]
-                x[i][finger[0], finger[1], 6] = 1
-
-        if list_of_lists and actions:
-            counter = 0
-            # Looping through episodes.
-            for i in range(len(actions)):
-                # Looping through steps in episodes.
-                for j in range(len(actions[i])):
-                    action = actions[i][j]
-                    if action == 'left':
-                        y[counter][0] = rewards[i][j]
-                    elif action == 'right':
-                        y[counter][1] = rewards[i][j]
-                    elif action == 'up':
-                        y[counter][2] = rewards[i][j]
-                    elif action == 'down':
-                        y[counter][3] = rewards[i][j]
-                    elif action == 'pass':
-                        y[counter][4] = rewards[i][j]
-                    counter += 1
-        elif actions:
-            # Looping through steps in episodes.
-            for i in range(len(actions)):
-                action = actions[i]
-                if action == 'left':
-                    y[i][0] = rewards[i]
-                elif action == 'right':
-                    y[i][1] = rewards[i]
-                elif action == 'up':
-                    y[i][2] = rewards[i]
-                elif action == 'down':
-                    y[i][3] = rewards[i]
-                elif action == 'pass':
-                    y[i][4] = rewards[i]
-
-        return x, y
-
-
-def agent01():
-    return Agent01()
+        return states
