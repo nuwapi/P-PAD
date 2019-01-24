@@ -53,17 +53,20 @@ class Agent01:
             raise Exception('ERROR: The last dense layer needs to have the shape of the target!')
 
         # Initialize models A and B.
-        self.state_A, self.target_A, self.q_value_A, self.loss_A = self.initialize_model(scope='model_A')
-        self.state_B, self.target_B, self.q_value_B, self.loss_B = self.initialize_model(scope='model_B')
+        self.state_A, self.target_A, self.q_values_A, self.loss_A = self.initialize_model(scope='model_A')
+        self.state_B, self.target_B, self.q_values_B, self.loss_B = self.initialize_model(scope='model_B')
 
         # Set up optimizer for model A.
         self.optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
         gradients, variables = zip(*self.optimizer.compute_gradients(self.loss_A))
         self.gradients = zip(gradients, variables)
-        self.training_operation = self.optimizer.apply_gradients(self.gradients)
+        self.backprop_operation = self.optimizer.apply_gradients(self.gradients)
 
         # Set up a saver to save the graph (both models A and B).
         self.saver = tf.train.Saver(tf.global_variables())
+
+        # Initialize all variables.
+        self.sess.run(tf.global_variables_initializer())
 
         # Initialize Tensorboard.
         if tensorboard_path is not None:
@@ -72,7 +75,7 @@ class Agent01:
         else:
             self.tensorboard = None
 
-    def initialize_model(self, scope='model_A'):
+    def initialize_model(self, scope):
         with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
             # Define input data. The batch size is undetermined.
             state = tf.placeholder(tf.float32, shape=[None] + list(self.st_shape), name='state')
@@ -81,69 +84,78 @@ class Agent01:
             # Format: [batch, height, width, channels].
             conv_layer_in = state
             for i in range(len(self.conv_layers)):
-                in_channels = tf.shape(conv_layer_in)[-1]
+                in_channels = conv_layer_in.get_shape().as_list()[-1]
+                filter = tf.get_variable(name='model_core/conv' + str(i) + '/filter',
+                                         shape=[self.conv_layers[i][0], self.conv_layers[i][0], in_channels, self.conv_layers[i][1]],
+                                         dtype=tf.float32)
                 conv_layer_out = tf.nn.conv2d(
                     input=conv_layer_in,
-                    filter=[self.conv_layers[i][0], self.conv_layers[i][0], in_channels, self.conv_layers[i][1]],
-                    strides = [1] + [1] * len(self.st_shape),
+                    filter=filter,
+                    strides=[1] + [1] * len(self.st_shape),
                     padding='VALID',
-                    name='model/conv' + str(i)
+                    name='model_core/conv' + str(i)
                 )
                 conv_layer_in = conv_layer_out
 
-            dense_layer_in = tf.contrib.layers.flatten(conv_layer_out, scope='model/conv_flatten')
+            dense_layer_in = tf.contrib.layers.flatten(conv_layer_out, scope='model_core/conv_flatten')
             for i in range(len(self.dense_layers)):
                 dense_layer_out = tf.layers.dense(
                     inputs=dense_layer_in,
                     units=self.dense_layers[i],
-                    name='model/dense' + str(i)
+                    name='model_core/dense' + str(i)
                 )
                 dense_layer_in = dense_layer_out
 
-            q_value = dense_layer_out
-            loss = tf.reduce_mean(tf.squared_difference(q_value, target))
+            q_values = dense_layer_out
+            loss = tf.reduce_mean(tf.squared_difference(q_values, target))
 
-            return state, target, q_value, loss
+            return state, target, q_values, loss
 
     def train(self, boards, fingers, targets):
         """
+        Train one batch.
+        :param boards: Numpy array, (batch_size, 5, 6).
+        :param fingers: Numpy array, (batch_size, 2).
+        :param targets: Numpy array, (batch_size, 5).
+        :return:
         """
         states = self.board_finger_to_state(boards, fingers)
         inputs = {self.state_A.name: states, self.target_A.name: targets}
-        fetches = [self.training_operation, self.q_value_A, self.loss_A]
-        _, q_value, loss = self.sess.run(fetches=fetches, feed_dict=inputs)
+        fetches = [self.backprop_operation, self.q_values_A, self.loss_A]
+        _, q_values, loss = self.sess.run(fetches=fetches, feed_dict=inputs)
 
         return loss
 
-    def predict(self, batch_state, batch_target, model='A'):
+    def predict(self, boards, fingers, model='A'):
+        states = self.board_finger_to_state(boards, fingers)
+        return self.predict_from_state(states, model)
+
+    def predict_from_state(self, batch_state, model='A'):
         if model == 'A':
             state_tensor = self.state_A
-            target_tensor = self.target_A
-            q_value_tensor = self.q_value_A
+            q_values_tensor = self.q_values_A
         elif model == 'B':
             state_tensor = self.state_B
-            target_tensor = self.target_B
-            q_value_tensor = self.q_value_B
+            q_values_tensor = self.q_values_B
         else:
             raise Exception('ERROR: Model name has to be either A or B!')
 
-        inputs = {state_tensor.name: batch_state, target_tensor.name: batch_target}
-        q_value_predictions = self.sess.run(fetches=[q_value_tensor], feed_dict=inputs)[0]
+        inputs = {state_tensor.name: batch_state}
+        q_value_predictions = self.sess.run(fetches=[q_values_tensor], feed_dict=inputs)[0]
 
         return q_value_predictions
 
-    def act(self, board, finger, target, model='A', method='max'):
+    def act(self, board, finger, model='A', method='max'):
         """
         Ask the agent to product an action based on the given state.
         :param board: Numpy array of size (1, 5, 6). 1 for batch size 1.
         :param finger: Numpy array of size (1, 2).
-        :param target: Numpy array of size (1, 5).
         :param model: A or B.
         :param method: How to turn q value array into an action.
         :return: The best action to take given the state.
         """
         state = self.board_finger_to_state(board, finger)
-        q_value_predictions = self.predict(state, target, model)[0]
+        q_value_predictions = self.predict_from_state(state, model)[0]
 
         if str(method).lower() == 'max':
             minimum = np.min(q_value_predictions)
@@ -175,14 +187,28 @@ class Agent01:
         else:
             raise Exception('Action type {0} is invalid.'.format(action))
 
-    def copy_B_to_A(self):
-        pass
+    def copy_A_to_B(self, verbose=False):
+        all_nodes = [node.values() for node in tf.get_default_graph().get_operations()]
+        all_names = [tensor.name for tensors in all_nodes for tensor in tensors]
+        A_names = [name for name in all_names if name.find('model_A') > -1]
+        B_names = [name for name in all_names if name.find('model_B') > -1]
+        A_names = [name for name in A_names if name.find('model_core') > -1]
+        B_names = [name for name in B_names if name.find('model_core') > -1]
+
+        if verbose:
+            for A_name, B_name in zip(A_names, B_names):
+                print('Overwriting {0} with {1}'.format(B_name, A_name))
+
+        A_tensors = [tf.get_default_graph().get_tensor_by_name(name) for name in A_names]
+        B_tensors = [tf.get_default_graph().get_tensor_by_name(name) for name in B_names]
+        assign_ops = [tf.assign(B_tensor, A_tensor) for A_tensor, B_tensor in zip(A_tensors, B_tensors)]
+        self.sess.run(fetches=assign_ops)
 
     def board_finger_to_state(self, boards, fingers):
         """
         Convert a batch of states into TensorFlow usable format.
         :param boards: Numpy array, e.g. (batch_size, 5, 6).
-        :param fingers: Numpy array, e.g. (batch_size, 2)
+        :param fingers: Numpy array, e.g. (batch_size, 2).
         :return: The state.
         """
         batch_size = len(boards)

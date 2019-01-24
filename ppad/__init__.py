@@ -40,7 +40,6 @@ logging.info('Added PPADPATH to PYTHONPATH. Your current PYTHONPATH is {0}'.form
 # Within P-PAD, ppad.* modules can only import ppad.agent and ppad.pad but not any other ppad.*,
 # while ppad.agent and ppad.pad are each completely independent and self-sufficient modules.
 from ppad.agent.agent01 import Agent01
-import ppad.agent.agent02 as agent02
 from ppad.agent.utils import discount
 from ppad.pad.game import PAD
 from ppad.data.dataset01.smart_data import smart_data
