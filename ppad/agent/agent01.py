@@ -106,7 +106,7 @@ class Agent01:
                 )
                 dense_layer_in = dense_layer_out
 
-            q_values = dense_layer_out
+            q_values = tf.nn.relu(dense_layer_out)
             loss = tf.reduce_mean(tf.squared_difference(q_values, target))
 
             return state, target, q_values, loss
@@ -188,10 +188,18 @@ class Agent01:
             raise Exception('Action type {0} is invalid.'.format(action))
 
     def copy_A_to_B(self, verbose=False):
+        name_filters = ['filter:0', 'kernel:0', 'bias:0']
         all_nodes = [node.values() for node in tf.get_default_graph().get_operations()]
         all_names = [tensor.name for tensors in all_nodes for tensor in tensors]
-        A_names = [name for name in all_names if name.find('model_A') > -1]
-        B_names = [name for name in all_names if name.find('model_B') > -1]
+        all_weight_names = []
+        for name in all_names:
+            for name_filter in name_filters:
+                if name.find(name_filter) > -1:
+                    all_weight_names.append(name)
+                    break
+
+        A_names = [name for name in all_weight_names if name.find('model_A') > -1]
+        B_names = [name for name in all_weight_names if name.find('model_B') > -1]
         A_names = [name for name in A_names if name.find('model_core') > -1]
         B_names = [name for name in B_names if name.find('model_core') > -1]
 
