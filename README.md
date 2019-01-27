@@ -1,11 +1,10 @@
 # P-PAD
 Reinforcement learning on [Puzzle & Dragons](https://play.google.com/store/apps/details?id=jp.gungho.padEN).
 
-The project is still evolving but currently contains the following components:
-* OpenAI Gym like environment.
-* Tensorflow/Keras for the agent.
-* Training data generation.
-* Basic visualization.
+The project is still evolving but currently we are trying:
+* Boltzmann policy and annealing.
+* Experience replay.
+* A frozen model B for action reward prediction.
 
 ### Random sampling
 ![Random exploration](https://github.com/nuwapi/P-PAD/blob/master/visualizations/random_sampling.gif)
