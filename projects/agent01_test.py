@@ -50,6 +50,12 @@ board = np.ones((1, 5, 6), dtype=np.int32)
 finger = np.zeros((1, 2), dtype=np.int32)
 print('Model chooses:', agent.act(board, finger, model='A'))
 
+print('\nDo an act with A using Boltzmann probabilities.')
+board = np.ones((1, 5, 6), dtype=np.int32)
+finger = np.zeros((1, 2), dtype=np.int32)
+print('Model chooses:', agent.act(board, finger, model='A',
+                                  method='boltzmann', beta=0.1))
+
 print('\nDo a predict with B.')
 board = np.ones((1, 5, 6), dtype=np.int32)
 finger = np.zeros((1, 2), dtype=np.int32)

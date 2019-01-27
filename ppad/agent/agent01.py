@@ -145,7 +145,7 @@ class Agent01:
 
         return q_value_predictions
 
-    def act(self, board, finger, model='A', method='max'):
+    def act(self, board, finger, model='A', method='max', beta=None):
         """
         Ask the agent to product an action based on the given state.
         :param board: Numpy array of size (1, 5, 6). 1 for batch size 1.
@@ -157,18 +157,28 @@ class Agent01:
         state = self.board_finger_to_state(board, finger)
         q_value_predictions = self.predict_from_state(state, model)[0]
 
-        if str(method).lower() == 'max':
-            minimum = np.min(q_value_predictions)
-            if finger[0, 0] == 0:
-                q_value_predictions[0] = minimum - 1  # Can't go up.
-            elif finger[0, 0] == self.st_shape[0] - 1:
-                q_value_predictions[1] = minimum - 1  # Can't go down.
-            if finger[0, 1] == 0:
-                q_value_predictions[2] = minimum - 1  # Can't go left.
-            elif finger[0, 1] == self.st_shape[1] - 1:
-                q_value_predictions[3] = minimum - 1  # Can't go right.
+        # Penalize illegal moves
+        if finger[0, 0] == 0:
+            q_value_predictions[0] = -np.inf  # Can't go up.
+        elif finger[0, 0] == self.st_shape[0] - 1:
+            q_value_predictions[1] = -np.inf # Can't go down.
+        if finger[0, 1] == 0:
+            q_value_predictions[2] = -np.inf  # Can't go left.
+        elif finger[0, 1] == self.st_shape[1] - 1:
+            q_value_predictions[3] = -np.inf # Can't go right.
 
+        # Choose an action according to the chosen method
+        if str(method).lower() == 'max':
             action = np.argmax(q_value_predictions)
+            
+        elif str(method).lower() == 'boltzmann':
+            if beta is None:
+                raise Exception('ERROR: Provide a value for beta!')
+            else:
+                b_values = np.exp(beta*q_value_predictions)
+                b_probs = b_values/sum(b_values)
+                action = np.random.choice(5,p=b_probs)
+        
         else:
             raise Exception('ERROR: Unknown action method!')
         # TODO: Epsilon greedy, Boltzmann.
