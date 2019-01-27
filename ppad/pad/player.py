@@ -26,7 +26,8 @@ class PlayerAction:
     opposite_actions = {'up': 'down',
                         'down': 'up',
                         'left': 'right',
-                        'right': 'left'}
+                        'right': 'left',
+                        'pass': 'pass'}
 
     def __init__(self, finger, dim_row, dim_col):
         self.previous_action = None

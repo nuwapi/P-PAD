@@ -148,12 +148,15 @@ class Agent01:
     def act(self, board, finger, model='A', method='max', beta=None):
         """
         Ask the agent to product an action based on the given state.
-        :param board: Numpy array of size (1, 5, 6). 1 for batch size 1.
-        :param finger: Numpy array of size (1, 2).
+        :param board: Numpy array of size (5, 6). 1 for batch size 1.
+        :param finger: Numpy array of size (2).
         :param model: A or B.
         :param method: How to turn q value array into an action.
+        :param beta: The beta factor for a Boltzmann action.
         :return: The best action to take given the state.
         """
+        board = np.reshape(board, tuple([1] + list(board.shape)))
+        finger = np.reshape(finger, tuple([1] + list(finger.shape)))
         state = self.board_finger_to_state(board, finger)
         q_value_predictions = self.predict_from_state(state, model)[0]
 
@@ -170,7 +173,6 @@ class Agent01:
         # Choose an action according to the chosen method
         if str(method).lower() == 'max':
             action = np.argmax(q_value_predictions)
-            
         elif str(method).lower() == 'boltzmann':
             if beta is None:
                 raise Exception('ERROR: Provide a value for beta!')
@@ -178,11 +180,9 @@ class Agent01:
                 b_values = np.exp(beta*q_value_predictions)
                 b_probs = b_values/sum(b_values)
                 action = np.random.choice(5,p=b_probs)
-        
         else:
             raise Exception('ERROR: Unknown action method!')
-        # TODO: Epsilon greedy, Boltzmann.
-        # probabilities = tf.nn.softmax(q_value, axis=-1, name='softmax')
+        # TODO: Epsilon greedy.
 
         if action == 0:
             return 'up'
