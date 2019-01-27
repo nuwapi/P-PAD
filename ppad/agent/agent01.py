@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>
 
 import numpy as np
 import tensorflow as tf
+import datetime
 
 
 class Agent01:
@@ -196,6 +197,15 @@ class Agent01:
             return 'pass'
         else:
             raise Exception('Action type {0} is invalid.'.format(action))
+
+    def save(self, checkpoint=None):
+        if checkpoint is None:
+            checkpoint = 'model.ckpt-' + str(datetime.datetime.now()).replace('-', '.').replace(':', '.').replace(' ', '.')
+        self.saver.save(self.sess, checkpoint)
+
+    def load(self, checkpoint):
+        saver = tf.train.import_meta_graph(checkpoint + '.meta')
+        saver.restore(self.sess, checkpoint)
 
     def copy_A_to_B(self, verbose=False):
         name_filters = ['filter:0', 'kernel:0', 'bias:0']

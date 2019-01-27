@@ -46,13 +46,13 @@ finger = np.zeros((1, 2), dtype=np.int32)
 print('Rewards:', agent.predict(board, finger, model='A'))
 
 print('\nDo an act with A.')
-board = np.ones((1, 5, 6), dtype=np.int32)
-finger = np.zeros((1, 2), dtype=np.int32)
+board = np.ones((5, 6), dtype=np.int32)
+finger = np.zeros((2), dtype=np.int32)
 print('Model chooses:', agent.act(board, finger, model='A'))
 
 print('\nDo an act with A using Boltzmann probabilities.')
-board = np.ones((1, 5, 6), dtype=np.int32)
-finger = np.zeros((1, 2), dtype=np.int32)
+board = np.ones((5, 6), dtype=np.int32)
+finger = np.zeros((2), dtype=np.int32)
 print('Model chooses:', agent.act(board, finger, model='A',
                                   method='boltzmann', beta=0.1))
 
@@ -62,8 +62,8 @@ finger = np.zeros((1, 2), dtype=np.int32)
 print('Rewards:', agent.predict(board, finger, model='B'))
 
 print('\nDo an act with B.')
-board = np.ones((1, 5, 6), dtype=np.int32)
-finger = np.zeros((1, 2), dtype=np.int32)
+board = np.ones((5, 6), dtype=np.int32)
+finger = np.zeros((2), dtype=np.int32)
 print('Model chooses:', agent.act(board, finger, model='B'))
 
 print('\nCopy A to B.')
@@ -75,6 +75,21 @@ finger = np.zeros((1, 2), dtype=np.int32)
 print('Rewards:', agent.predict(board, finger, model='B'))
 
 print('\nDo an act with B.')
+board = np.ones((5, 6), dtype=np.int32)
+finger = np.zeros((2), dtype=np.int32)
+print('Model chooses:', agent.act(board, finger, model='B'))
+
+print('\nSave the model.')
+agent.save(checkpoint='/home/nwang/Documents/model-ckpt.100')
+
+print('\nReinitialize the graph.')
+agent.sess.run(tf.global_variables_initializer())
+print('\nDo a predict with B.')
 board = np.ones((1, 5, 6), dtype=np.int32)
 finger = np.zeros((1, 2), dtype=np.int32)
-print('Model chooses:', agent.act(board, finger, model='B'))
+print('Rewards:', agent.predict(board, finger, model='B'))
+
+print('\nLoad the model.')
+agent.load(checkpoint='/home/nwang/Documents/model-ckpt.100')
+print('\nDo a predict with B.')
+print('Rewards:', agent.predict(board, finger, model='B'))
