@@ -27,7 +27,7 @@ from ppad.agent.agent01 import Agent01
 
 #### Functions
 def model_simulation(model, min_data_points, gamma, log10_reward = False, beta = None):
-    ''' Generates data step by step accorind got model policy '''
+    ''' Generates data step by step according to model policy '''
     sim_sars = []
     while len(sim_sars)<min_data_points:
         env.reset()
@@ -52,19 +52,25 @@ def model_simulation(model, min_data_points, gamma, log10_reward = False, beta =
 # The max experience replay buffer size. This is a hyperparameter, people usually use 1,000,000.
 MAX_DATA_SIZE = 10**5
 # Training batch size.
-BATCH_SIZE = 10
+BATCH_SIZE = 32
 # The number of steps of the simulation/training.
-STEPS = 10**4
+STEPS = 10**5
 # Update model B every this number of steps.
 B_UPDATE_FREQ = 32
 # Number of episodes to generate per data update.
-EPISODES_PER_STEP = 10
+EPISODES_PER_STEP = 15
 # If a game episode doesn't end after this number of steps, give 'pass' to the env.
-MAX_EPISODE_LEN = 150
+MAX_EPISODE_LEN = 200
 LOG10_REWARD = True
 GAMMA = 0.99
 # Action dictionary.
 ACTION2ID = {'up': 0, 'down': 1, 'left': 2, 'right': 3, 'pass': 4}
+# Exploration policy
+POLICY = 'boltzmann'
+BETA_INIT = 0.1
+BETA_RATE_INCREASE = 1.1 # Magnitude of increase in beta when changed
+BETA_INCREASE_FREQUENCY = 1000 # Number of episodes before decay 
+print(BETA_INIT*BETA_RATE_INCREASE**(STEPS/BETA_INCREASE_FREQUENCY))
 
 # Agent initialization.
 sess = tf.Session()
@@ -81,8 +87,13 @@ sar_data = []
 # 2. Simulation.
 ############################
 
+beta = BETA_INIT
 for step in range(STEPS):
     print('============================> STEP {0} OUT OF {1}.'.format(step + 1, STEPS))
+
+    if POLICY=='boltzmann' and ((step+1) % BETA_INCREASE_FREQUENCY == 0):
+        beta *= BETA_RATE_INCREASE
+        print('Beta updated to {0}'.format(beta))
 
     # a. Generate training data.
     sar_new = []
@@ -91,14 +102,16 @@ for step in range(STEPS):
         env.reset()
         action = ''
         while action != 'pass' and counter < MAX_EPISODE_LEN:
-            action = agent.act(env.board, env.finger, 'A')
+            action = agent.act(env.board, env.finger, 'A',  
+                               method=POLICY, beta=beta)
             env.step(action)
             counter += 1
         # If the episode went beyond MAX_EPISODE_LEN, end the episode.
         if action != 'pass':
             env.step('pass')
 
-        discounted_rewards = ppad.discount(rewards=env.rewards, gamma=GAMMA, log10=LOG10_REWARD)
+        discounted_rewards = ppad.discount(rewards=env.rewards, gamma=GAMMA, 
+                                           log10=LOG10_REWARD)
         for s, a, r in zip(env.observations, env.actions, discounted_rewards):
             sar_new.append((s, a, r))
 

@@ -334,8 +334,8 @@ class PAD:
         # Make sure the PlayerAction finger position is up to date.
         self.action_space.finger = self.finger
         # TODO: This is hard coded in.
-        if self.action_space.opposite_actions[action] == self.action_space.previous_action:
-            action = 'pass'
+        #        if self.action_space.opposite_actions[action] == self.action_space.previous_action:
+        #            action = 'pass'
         # If the agent decides to stop moving the finger.
         if action is 'pass':
             done = True
