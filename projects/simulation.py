@@ -26,21 +26,28 @@ from ppad.agent.agent01 import Agent01
 
 
 #### Functions
-def model_simulation(model, min_data_points, gamma, log10_reward = False, beta = None):
+def model_simulation(agent, min_data_points, gamma, log10_reward = False, 
+                     policy = 'max', beta = None, max_episode_len = 200):
     ''' Generates data step by step according to model policy '''
     sim_sars = []
     while len(sim_sars)<min_data_points:
         env.reset()
         
+        counter = 0
         action = None
         while action != 'pass':
-            action = model.act(env.board)
+            if counter > max_episode_len:
+                action = 'pass'
+            else:
+                action = agent.act(env.board, env.finger, 'A', method=policy, beta=beta)
             env.step(action)
+            counter +=1
+
         
         discounted_rewards = ppad.discount(rewards=env.rewards, gamma=gamma, log10=log10_reward)
         sim_sars.extend(zip(list(env.observations), 
-                            list(env.actions)), 
-                            list(discounted_rewards))
+                            list(env.actions), 
+                            list(discounted_rewards)))
     return sim_sars
 
 
@@ -55,12 +62,14 @@ MAX_DATA_SIZE = 10**5
 BATCH_SIZE = 32
 # The number of steps of the simulation/training.
 STEPS = 10**5
+STEP_REPORT_FREQ = 10
 # Update model B every this number of steps.
-B_UPDATE_FREQ = 32
+B_UPDATE_FREQ = 10
 # Number of episodes to generate per data update.
 EPISODES_PER_STEP = 15
 # If a game episode doesn't end after this number of steps, give 'pass' to the env.
 MAX_EPISODE_LEN = 200
+MIN_STEP_SARS = 200
 LOG10_REWARD = True
 GAMMA = 0.99
 # Action dictionary.
@@ -69,7 +78,7 @@ ACTION2ID = {'up': 0, 'down': 1, 'left': 2, 'right': 3, 'pass': 4}
 POLICY = 'boltzmann'
 BETA_INIT = 0.1
 BETA_RATE_INCREASE = 1.1 # Magnitude of increase in beta when changed
-BETA_INCREASE_FREQUENCY = 1000 # Number of episodes before decay 
+BETA_INCREASE_FREQUENCY = 100 # Number of episodes before decay 
 print(BETA_INIT*BETA_RATE_INCREASE**(STEPS/BETA_INCREASE_FREQUENCY))
 
 # Agent initialization.
@@ -88,72 +97,60 @@ sar_data = []
 ############################
 
 beta = BETA_INIT
+new_data_points = 0
 for step in range(STEPS):
-    print('============================> STEP {0} OUT OF {1}.'.format(step + 1, STEPS))
-
+    
     if POLICY=='boltzmann' and ((step+1) % BETA_INCREASE_FREQUENCY == 0):
         beta *= BETA_RATE_INCREASE
-        print('Beta updated to {0}'.format(beta))
+        print('* Beta updated to {0}'.format(beta))
 
     # a. Generate training data.
-    sar_new = []
-    for episode in range(EPISODES_PER_STEP):
-        counter = 1
-        env.reset()
-        action = ''
-        while action != 'pass' and counter < MAX_EPISODE_LEN:
-            action = agent.act(env.board, env.finger, 'A',  
-                               method=POLICY, beta=beta)
-            env.step(action)
-            counter += 1
-        # If the episode went beyond MAX_EPISODE_LEN, end the episode.
-        if action != 'pass':
-            env.step('pass')
-
-        discounted_rewards = ppad.discount(rewards=env.rewards, gamma=GAMMA, 
-                                           log10=LOG10_REWARD)
-        for s, a, r in zip(env.observations, env.actions, discounted_rewards):
-            sar_new.append((s, a, r))
-
+    sar_new = model_simulation(agent, MIN_STEP_SARS, GAMMA, log10_reward = LOG10_REWARD, 
+                               policy = POLICY, beta = beta, max_episode_len = MAX_EPISODE_LEN)
     new_data_len = len(sar_new)
-    print('Generated {0} new SAR pairs.'.format(new_data_len))
+    new_data_points += new_data_len
 
     # b. Combine new training data with the current list.
-    print('Updating sar_data.')
     sar_data += sar_new
     # Discard the extra data.
     if len(sar_data) > MAX_DATA_SIZE:
-        shuffle(sar_data)
+        shuffle(sar_data) # TODO: Inefficient. 
         sar_data = sar_data[0:MAX_DATA_SIZE]
 
     # c. Do training.
-    print('Doing training.')
     no_of_mini_batches = int(new_data_len/BATCH_SIZE) + 1
     total_loss = 0
     total_reward = 0
     for training_step in range(no_of_mini_batches):
+        batch_data_new = sar_new[training_step*BATCH_SIZE:(training_step+1)*BATCH_SIZE]
         # Do a random sample.
-        batch_data = [sar_data[i] for i in sample(range(len(sar_data)), BATCH_SIZE)]
+        batch_data_replay = [sar_data[i] for i in sample(range(len(sar_data)), BATCH_SIZE)]
 
-        # Turn states into np format.
-        states, actions, rewards = map(list, zip(*batch_data))
-        boards, fingers = map(list, zip(*states))
-        actions = [ACTION2ID[action] for action in actions]
-        boards = np.array(boards)
-        fingers = np.array(fingers)
+        for batch_data in [batch_data_new, batch_data_replay]:
+            # Turn states into np format.
+            states, actions, rewards = map(list, zip(*batch_data))
+            boards, fingers = map(list, zip(*states))
+            actions = [ACTION2ID[action] for action in actions]
+            boards = np.array(boards)
+            fingers = np.array(fingers)
+    
+            # Use model B to do a prediction for actions with unknown rewards.
+            targets = agent.predict(boards, fingers, 'B')
+            for i, action in enumerate(actions):
+                targets[i, action] = rewards[i]
+    
+            # Train A.
+            loss = agent.train(boards, fingers, targets)
+            total_loss += loss
+            total_reward += sum(rewards)
 
-        # Use model B to do a prediction for actions with unknown rewards.
-        targets = agent.predict(boards, fingers, 'B')
-        for i, action in enumerate(actions):
-            targets[i, action] = rewards[i]
-
-        # Train A.
-        loss = agent.train(boards, fingers, targets)
-        total_loss += loss
-        total_reward += sum(rewards)
-
-    print('Avg loss   = {0}.'.format(total_loss/no_of_mini_batches))
-    print('Avg reward = {0}.'.format(total_reward/no_of_mini_batches/BATCH_SIZE))
+    # Communicate the current status
+    if ((step % STEP_REPORT_FREQ) == 0):
+        print('============================> STEP {0} OUT OF {1}.'.format(step + 1, STEPS))
+        print('New SAR pairs generated: {0}.'.format(new_data_points))
+        print('Avg loss   = {0}.'.format(total_loss/no_of_mini_batches))
+        print('Avg reward = {0}.'.format(total_reward/no_of_mini_batches/BATCH_SIZE))
+        new_data_points = 0
 
     # d. Update B.
     if (step + 1) % B_UPDATE_FREQ == 0:
