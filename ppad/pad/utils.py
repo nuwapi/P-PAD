@@ -231,13 +231,13 @@ def single_episode2gif(observations, actions, path, shrink=3, animate=True):
     for index in range(len(actions)):
         combos = cancel(np.copy(observations[index][0]))
         display_info = "step = {0}, combo = {1}".format(index+1, len(combos))
-        synthesize_frame(index, index, finger, 0, display_info)
-        synthesize_frame(index, index, finger, 0.33, display_info)
-        synthesize_frame(index, index, finger, 0.67, display_info)
 
-        if index == len(actions) - 1:
-            synthesize_frame(index, 0, finger, 1)
-            break
+        if actions[index] == 'pass':
+            synthesize_frame(index, index, finger, 0, display_info)
+        else:
+            synthesize_frame(index, index, finger, 0, display_info)
+            synthesize_frame(index, index, finger, 0.33, display_info)
+            synthesize_frame(index, index, finger, 0.67, display_info)
 
         if actions[index] == 'left' and finger[1] - 1 >= 0:
             finger[1] -= 1
