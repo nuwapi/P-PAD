@@ -81,7 +81,7 @@ class PAD:
         # The enhanced orb probability for each orb type.
         self.skyfall_enhanced = skyfall_enhanced
         # Whether to skyfall when calculating damange.
-        self.skyfall_damange = skyfall_damage
+        self.skyfall_damage = skyfall_damage
         # All player and enemy buffs and debuffs. This should be a list of some sort.
         self.buff = buff
         # The orb identities of the board. See fill_board() for details.
@@ -360,7 +360,7 @@ class PAD:
 
                 # Add combo to combo list and skyfall.
                 all_combos += combos
-                if self.skyfall_damange is False:
+                if self.skyfall_damage is False:
                     break
 
                 self.drop()
