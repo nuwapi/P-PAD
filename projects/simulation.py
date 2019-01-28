@@ -58,10 +58,9 @@ def model_simulation(agent, min_data_points, gamma, log10_reward=False,
         
         if visualize:
             env.visualize(filename='/home/chris/Documents/model_trajectory.gif')
-            print('---Saving the model trajetory---')
+            print('* Saving the model trajectory.')
             break
-            
-        
+
     return sim_sars, num_episodes
 
 
@@ -127,6 +126,7 @@ sar_data = []
 beta = BETA_INIT
 print('BETA value at the end of training:', BETA_INIT*BETA_INCREASE_RATE**(STEPS/BETA_INCREASE_FREQ))
 total_loss = 0
+total_rmse = 0
 total_reward = 0
 total_new_data_points = 0
 total_actions = 0
@@ -145,8 +145,9 @@ for step in range(STEPS):
         print('* Beta updated to {0}'.format(beta))
 
     # b. Generate new training data.
-    sar_new, num_episodes = model_simulation(agent, min_data_points=MIN_STEP_SARS, gamma=GAMMA, log10_reward=LOG10_REWARD,
-                                           policy=POLICY, beta=beta, max_episode_len=MAX_EPISODE_LEN)
+    sar_new, num_episodes = model_simulation(agent, min_data_points=MIN_STEP_SARS, gamma=GAMMA,
+                                             log10_reward=LOG10_REWARD, policy=POLICY, beta=beta,
+                                             max_episode_len=MAX_EPISODE_LEN)
     new_data_len = len(sar_new)
     total_new_data_points += new_data_len
     total_episodes += num_episodes
@@ -179,7 +180,16 @@ for step in range(STEPS):
             targets[i, action] = rewards[i]
 
         # Train A.
-        loss = agent.train(boards, fingers, targets)
+        loss, q_values = agent.train(boards, fingers, targets)
+        loss = np.sqrt(loss)
+
+        # Calculate root mean sqaure error.
+        rmse = 0
+        for i, action in enumerate(actions):
+            rmse += (targets[i, action] - q_values[i, action])**2
+        rmse = np.sqrt(rmse/len(actions))
+
+        total_rmse += rmse / no_of_mini_batches
         total_loss += loss / no_of_mini_batches
         total_reward += sum(rewards) / BATCH_SIZE / no_of_mini_batches
         max_reward = max(max_reward, max(rewards))
@@ -189,15 +199,16 @@ for step in range(STEPS):
         print('============================> STEP {0} OUT OF {1}.'.format(step + 1, STEPS))
         print('New SAR pairs  = {0}.'.format(total_new_data_points))
         print('Avg len per ep = {:.4f}.'.format(total_new_data_points / total_episodes))
-        print('Avg loss       = {:.4f}.'.format(total_loss / REPORT_FREQ))
+        print('Avg RMS error  = {:.4f}.'.format(total_rmse / REPORT_FREQ))
+        print('Avg loss^0.5   = {:.4f}.'.format(total_loss / REPORT_FREQ))
         print('Avg reward     = {:.4f}.'.format(total_reward / REPORT_FREQ))
         print('Max reward     = {:.4f}.'.format(max_reward))
         total_new_data_points = 0
         total_episodes = 0
         total_loss = 0
+        total_rmse = 0
         total_reward = 0
         max_reward = 0
-
 
     # f. Update model B.
     if (step + 1) % B_UPDATE_FREQ == 0:
