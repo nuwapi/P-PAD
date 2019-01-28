@@ -49,6 +49,7 @@ class Agent01:
         self.num_conv_layers = len(conv_layers)
         self.num_dense_layers = len(dense_layers)
         self.tensorboard_path = tensorboard_path
+        self.last_action = None
 
         if self.dense_layers[-1] != self.tg_shape[0]:
             raise Exception('ERROR: The last dense layer needs to have the shape of the target!')
@@ -170,7 +171,11 @@ class Agent01:
             q_value_predictions[2] = -np.inf  # Can't go left.
         elif finger[0, 1] == self.st_shape[1] - 1:
             q_value_predictions[3] = -np.inf # Can't go right.
-
+        
+        # Penalize last move
+        if self.last_action is not None:
+            q_value_predictions[self.last_action] = -np.inf
+        
         # Choose an action according to the chosen method
         if str(method).lower() == 'max':
             action = np.argmax(q_value_predictions)
@@ -185,6 +190,7 @@ class Agent01:
             raise Exception('ERROR: Unknown action method!')
         # TODO: Epsilon greedy.
 
+        self.last_action = action
         if action == 0:
             return 'up'
         elif action == 1:

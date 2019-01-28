@@ -36,7 +36,6 @@ def model_simulation(agent, min_data_points, gamma, log10_reward=False,
     Generates data step by step according to model policy.
     """
     sim_sars = []
-    total_episode_len = 0
     num_episodes = 0
     
     while len(sim_sars) < min_data_points:
@@ -53,13 +52,12 @@ def model_simulation(agent, min_data_points, gamma, log10_reward=False,
                 action = agent.act(env.board, env.finger, 'A', method=policy, beta=beta)
             env.step(action)
             counter += 1
-        total_episode_len += counter
         
         discounted_rewards = ppad.discount(rewards=env.rewards, gamma=gamma, log10=log10_reward)
         sim_sars.extend(zip(list(env.observations), list(env.actions), list(discounted_rewards)))
         
         if visualize:
-            env.visualize(filename='./model_trajectory.gif')
+            env.visualize(filename='/home/chris/Documents/model_trajectory.gif')
             print('---Saving the model trajetory---')
             break
             
@@ -72,7 +70,7 @@ def model_simulation(agent, min_data_points, gamma, log10_reward=False,
 ############################
 
 # The number of steps of the simulation/training.
-STEPS = 10**4
+STEPS = 3*10**3
 # The max experience replay buffer size. This is a hyperparameter, people usually use 1,000,000.
 MAX_DATA_SIZE = 10**5
 # Training batch size.
@@ -85,18 +83,18 @@ MAX_EPISODE_LEN = 200
 MIN_STEP_SARS = 200
 
 # Take log10 of the raw reward value or not.
-LOG10_REWARD = True
+LOG10_REWARD = False
 # Discount rate gamma.
-GAMMA = 0.99
+GAMMA = 0.8
 
 # Exploration policy.
 POLICY = 'boltzmann'
 # The initial beta for Boltzmann policy.
-BETA_INIT = 0.1
+BETA_INIT = 10**-3
 # Beta increases every this number of steps.
 BETA_INCREASE_FREQ = 100  
 # The ratio of beta increase.
-BETA_INCREASE_RATE = 1.1
+BETA_INCREASE_RATE = 1.25
 
 # Save every this number of steps.
 SAVE_FREQ = 10**3
@@ -120,7 +118,7 @@ agent = Agent01(sess, conv_layers=((2, 64), (2, 64)),
 agent.copy_A_to_B()
 
 # Environment initialization.
-env = ppad.PAD()
+env = ppad.PAD(skyfall_damage=False)
 
 # (s,a,r) tuples.
 sar_data = []
@@ -195,7 +193,7 @@ for step in range(STEPS):
         print('Avg reward     = {:.4f}.'.format(total_reward / REPORT_FREQ))
         print('Max reward     = {:.4f}.'.format(max_reward))
         total_new_data_points = 0
-        total_avg_ep_len = 0
+        total_episodes = 0
         total_loss = 0
         total_reward = 0
         max_reward = 0
