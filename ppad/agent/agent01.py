@@ -125,7 +125,7 @@ class Agent01:
         fetches = [self.backprop_operation, self.q_values_A, self.loss_A]
         _, q_values, loss = self.sess.run(fetches=fetches, feed_dict=inputs)
 
-        return loss
+        return loss, q_values
 
     def predict(self, boards, fingers, model='A'):
         states = self.board_finger_to_state(boards, fingers)
