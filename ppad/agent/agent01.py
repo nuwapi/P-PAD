@@ -162,7 +162,7 @@ class Agent01:
         state = self.board_finger_to_state(board, finger)
         q_value_predictions = self.predict_from_state(state, model)[0]
 
-        # Penalize illegal moves
+        # Penalize illegal moves and last move
         if finger[0, 0] == 0:
             q_value_predictions[0] = -np.inf  # Can't go up.
         elif finger[0, 0] == self.st_shape[0] - 1:
@@ -173,8 +173,14 @@ class Agent01:
             q_value_predictions[3] = -np.inf # Can't go right.
         
         # Penalize last move
-        if self.last_action is not None:
-            q_value_predictions[self.last_action] = -np.inf
+        if self.last_action == 0: 
+            q_value_predictions[1] = -np.inf # Can't go down.
+        elif self.last_action == 1:
+            q_value_predictions[0] = -np.inf # Can't go up.
+        elif self.last_action == 2:
+            q_value_predictions[3] = -np.inf # Can't go right.
+        elif self.last_action == 3:
+            q_value_predictions[2] = -np.inf  # Can't go left.
         
         # Choose an action according to the chosen method
         if str(method).lower() == 'max':
