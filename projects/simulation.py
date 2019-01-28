@@ -48,6 +48,7 @@ def model_simulation(agent, min_data_points, gamma, log10_reward=False,
         while action != 'pass':
             if counter > max_episode_len:
                 action = 'pass'
+                agent.last_action = 'pass'
             else:
                 action = agent.act(env.board, env.finger, 'A', method=policy, beta=beta)
             env.step(action)
