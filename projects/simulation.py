@@ -30,20 +30,21 @@ from ppad.agent.agent01 import Agent01
 # 0. Define functions.
 ############################
 def model_simulation(agent, min_data_points, gamma, log10_reward=False,
-                     policy='max', beta=None, max_episode_len=200):
+                     policy='max', beta=None, max_episode_len=200,
+                     visualize=False):
     """
     Generates data step by step according to model policy.
     """
     sim_sars = []
     total_episode_len = 0
-    no_of_episodes = 0
+    num_episodes = 0
     
     while len(sim_sars) < min_data_points:
         env.reset()
 
         counter = 0
         action = None
-        no_of_episodes += 1
+        num_episodes += 1
         
         while action != 'pass':
             if counter > max_episode_len:
@@ -57,7 +58,13 @@ def model_simulation(agent, min_data_points, gamma, log10_reward=False,
         discounted_rewards = ppad.discount(rewards=env.rewards, gamma=gamma, log10=log10_reward)
         sim_sars.extend(zip(list(env.observations), list(env.actions), list(discounted_rewards)))
         
-    return sim_sars, total_episode_len / no_of_episodes
+        if visualize:
+            env.visualize(filename='./model_trajectory.gif')
+            print('---Saving the model trajetory---')
+            break
+            
+        
+    return sim_sars, num_episodes
 
 
 ############################
@@ -65,7 +72,7 @@ def model_simulation(agent, min_data_points, gamma, log10_reward=False,
 ############################
 
 # The number of steps of the simulation/training.
-STEPS = 10**5
+STEPS = 10**4
 # The max experience replay buffer size. This is a hyperparameter, people usually use 1,000,000.
 MAX_DATA_SIZE = 10**5
 # Training batch size.
@@ -92,9 +99,9 @@ BETA_INCREASE_FREQ = 100
 BETA_INCREASE_RATE = 1.1
 
 # Save every this number of steps.
-SAVE_FREQ = 100
+SAVE_FREQ = 10**3
 # Save path.
-SAVE_PATH = '~/Documents'
+SAVE_PATH = './model'
 # Report metrics every this number of steps.
 REPORT_FREQ = 10
 
@@ -108,7 +115,8 @@ ACTION2ID = {'up': 0, 'down': 1, 'left': 2, 'right': 3, 'pass': 4}
 
 # Agent initialization.
 sess = tf.Session()
-agent = Agent01(sess)
+agent = Agent01(sess, conv_layers=((2, 64), (2, 64)),
+                dense_layers=(64, 32, 5))
 agent.copy_A_to_B()
 
 # Environment initialization.
@@ -122,9 +130,10 @@ beta = BETA_INIT
 print('BETA value at the end of training:', BETA_INIT*BETA_INCREASE_RATE**(STEPS/BETA_INCREASE_FREQ))
 total_loss = 0
 total_reward = 0
-total_new_data_len = 0
-total_avg_ep_len = 0
 total_new_data_points = 0
+total_actions = 0
+total_episodes = 0
+max_reward = 0
 
 
 ############################
@@ -138,11 +147,11 @@ for step in range(STEPS):
         print('* Beta updated to {0}'.format(beta))
 
     # b. Generate new training data.
-    sar_new, avg_ep_len = model_simulation(agent, min_data_points=MIN_STEP_SARS, gamma=GAMMA, log10_reward=LOG10_REWARD,
+    sar_new, num_episodes = model_simulation(agent, min_data_points=MIN_STEP_SARS, gamma=GAMMA, log10_reward=LOG10_REWARD,
                                            policy=POLICY, beta=beta, max_episode_len=MAX_EPISODE_LEN)
     new_data_len = len(sar_new)
     total_new_data_points += new_data_len
-    total_avg_ep_len += avg_ep_len
+    total_episodes += num_episodes
     
     # c. Combine new training data with the current list.
     sar_data += sar_new
@@ -175,18 +184,22 @@ for step in range(STEPS):
         loss = agent.train(boards, fingers, targets)
         total_loss += loss / no_of_mini_batches
         total_reward += sum(rewards) / BATCH_SIZE / no_of_mini_batches
+        max_reward = max(max_reward, max(rewards))
 
     # e. Do report.
     if (step + 1) % REPORT_FREQ == 0:
         print('============================> STEP {0} OUT OF {1}.'.format(step + 1, STEPS))
         print('New SAR pairs  = {0}.'.format(total_new_data_points))
-        print('Avg len per ep = {:.4f}.'.format(total_avg_ep_len / REPORT_FREQ))
+        print('Avg len per ep = {:.4f}.'.format(total_new_data_points / total_episodes))
         print('Avg loss       = {:.4f}.'.format(total_loss / REPORT_FREQ))
         print('Avg reward     = {:.4f}.'.format(total_reward / REPORT_FREQ))
+        print('Max reward     = {:.4f}.'.format(max_reward))
         total_new_data_points = 0
         total_avg_ep_len = 0
         total_loss = 0
         total_reward = 0
+        max_reward = 0
+
 
     # f. Update model B.
     if (step + 1) % B_UPDATE_FREQ == 0:
