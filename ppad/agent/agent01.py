@@ -86,32 +86,42 @@ class Agent01:
             # Format: [batch, height, width, channels].
             conv_layer_in = state
             for i in range(len(self.conv_layers)):
-                in_channels = conv_layer_in.get_shape().as_list()[-1]
-                filter = tf.get_variable(name='model_core/conv' + str(i) + '/filter',
-                                         shape=[self.conv_layers[i][0], self.conv_layers[i][0], in_channels, self.conv_layers[i][1]],
-                                         dtype=tf.float32)
-                conv_layer_out = tf.nn.conv2d(
-                    input=conv_layer_in,
-                    filter=filter,
-                    strides=[1] + [1] * len(self.st_shape),
-                    padding='VALID',
+                conv_layer_out = tf.layers.conv2d(
+                    inputs = conv_layer_in,
+                    filters = self.conv_layers[i][1],
+                    kernel_size = (self.conv_layers[i][0], self.conv_layers[i][0]),
+                    strides=(1, 1),
+                    padding = 'valid',
+                    kernel_initializer = tf.contrib.layers.xavier_initializer(),
                     name='model_core/conv' + str(i)
                 )
+                # in_channels = conv_layer_in.get_shape().as_list()[-1]
+
+                # filter = tf.get_variable(name='model_core/conv' + str(i) + '/filter',
+                #                          shape=[self.conv_layers[i][0], self.conv_layers[i][0], in_channels, self.conv_layers[i][1]],
+                #                          dtype=tf.float32)
+                # conv_layer_out = tf.nn.conv2d(
+                #     input=conv_layer_in,
+                #     filter=filter,
+                #     strides=[1] + [1] * len(self.st_shape),
+                #     padding='VALID',
+                #     name='model_core/conv' + str(i)
+                #     )
                 conv_layer_in = conv_layer_out
             
-            relu_conv_layer = tf.nn.relu(conv_layer_out,)
+            relu_conv_layer = tf.nn.leaky_relu(conv_layer_out,)
             dense_layer_in = tf.contrib.layers.flatten(relu_conv_layer, scope='model_core/conv_flatten')
             for i in range(len(self.dense_layers)):
                 dense_layer_out = tf.layers.dense(
                     inputs=dense_layer_in,
                     units=self.dense_layers[i],
-                    activation = tf.nn.relu,
+                    activation = tf.nn.leaky_relu,
                     kernel_initializer = tf.contrib.layers.xavier_initializer(),
                     name='model_core/dense' + str(i)
                 )
                 dense_layer_in = dense_layer_out
 
-            q_values = dense_layer_out
+            q_values = tf.nn.relu(dense_layer_out)
             loss = tf.reduce_mean(tf.squared_difference(q_values, target))
 
             return state, target, q_values, loss
