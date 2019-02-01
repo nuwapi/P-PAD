@@ -98,17 +98,20 @@ class Agent01:
                     name='model_core/conv' + str(i)
                 )
                 conv_layer_in = conv_layer_out
-
-            dense_layer_in = tf.contrib.layers.flatten(conv_layer_out, scope='model_core/conv_flatten')
+            
+            relu_conv_layer = tf.nn.relu(conv_layer_out,)
+            dense_layer_in = tf.contrib.layers.flatten(relu_conv_layer, scope='model_core/conv_flatten')
             for i in range(len(self.dense_layers)):
                 dense_layer_out = tf.layers.dense(
                     inputs=dense_layer_in,
                     units=self.dense_layers[i],
+                    activation = tf.nn.relu,
+                    kernel_initializer = tf.contrib.layers.xavier_initializer(),
                     name='model_core/dense' + str(i)
                 )
                 dense_layer_in = dense_layer_out
 
-            q_values = tf.nn.relu(dense_layer_out)
+            q_values = dense_layer_out
             loss = tf.reduce_mean(tf.squared_difference(q_values, target))
 
             return state, target, q_values, loss
@@ -251,7 +254,7 @@ class Agent01:
         :param fingers: Numpy array, e.g. (batch_size, 2).
         :return: The state.
         """
-        batch_size = len(boards)
+        batch_size = boards.shape[0]
         # TODO: Now we fix the number of channels to 7, but in the future we should add poison, bomb etc.
         states = np.zeros((batch_size, self.st_shape[0], self.st_shape[1], self.st_shape[2]))
 
@@ -259,12 +262,8 @@ class Agent01:
         for i in range(batch_size):
             board = boards[i, :]
             finger = fingers[i, :]
-            states[i, :, :, 0][board == 0] = np.ones((5, 6))[board == 0]
-            states[i, :, :, 0][board == 1] = np.ones((5, 6))[board == 1]
-            states[i, :, :, 0][board == 2] = np.ones((5, 6))[board == 2]
-            states[i, :, :, 0][board == 3] = np.ones((5, 6))[board == 3]
-            states[i, :, :, 0][board == 4] = np.ones((5, 6))[board == 4]
-            states[i, :, :, 0][board == 5] = np.ones((5, 6))[board == 5]
+            for j in range(6):
+                states[i,:,:,j] = np.array(board == j)
             states[i, finger[0], finger[1], 6] = 1
 
         return states

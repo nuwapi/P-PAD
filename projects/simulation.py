@@ -70,7 +70,7 @@ def model_simulation(agent, min_data_points, gamma, log10_reward=False,
 ############################
 
 # The number of steps of the simulation/training.
-STEPS = 3*10**3
+STEPS = 10**5
 # The max experience replay buffer size. This is a hyperparameter, people usually use 1,000,000.
 MAX_DATA_SIZE = 10**5
 # Training batch size.
@@ -83,18 +83,20 @@ MAX_EPISODE_LEN = 200
 MIN_STEP_SARS = 200
 
 # Take log10 of the raw reward value or not.
-LOG10_REWARD = False
+LOG10_REWARD = True
 # Discount rate gamma.
 GAMMA = 0.8
 
 # Exploration policy.
 POLICY = 'boltzmann'
 # The initial beta for Boltzmann policy.
-BETA_INIT = 10**-3
+BETA_INIT = 10**-2
 # Beta increases every this number of steps.
-BETA_INCREASE_FREQ = 100  
+BETA_INCREASE_FREQ = 200  
 # The ratio of beta increase.
 BETA_INCREASE_RATE = 1.25
+# Set a max for beta
+MAX_BETA = 1
 
 # Save every this number of steps.
 SAVE_FREQ = 10**3
@@ -113,7 +115,7 @@ ACTION2ID = {'up': 0, 'down': 1, 'left': 2, 'right': 3, 'pass': 4}
 
 # Agent initialization.
 sess = tf.Session()
-agent = Agent01(sess, conv_layers=((2, 64), (2, 64)),
+agent = Agent01(sess, conv_layers=((2, 128), (2, 64)),
                 dense_layers=(64, 32, 5))
 agent.copy_A_to_B()
 
@@ -143,6 +145,8 @@ for step in range(STEPS):
     # a. Update beta if needed.
     if POLICY == 'boltzmann' and ((step + 1) % BETA_INCREASE_FREQ == 0):
         beta *= BETA_INCREASE_RATE
+        if beta>MAX_BETA:
+            beta = MAX_BETA
         print('* Beta updated to {0}'.format(beta))
 
     # b. Generate new training data.
@@ -222,3 +226,6 @@ for step in range(STEPS):
         checkpoint_name = 'model-ckpt.' + str(step)
         checkpoint_name = os.path.join(SAVE_PATH, checkpoint_name)
         agent.save(checkpoint=checkpoint_name)
+
+# Useful for debugging
+# agent.predict(env.board.reshape(1,5,6), env.finger.reshape(1,2))
