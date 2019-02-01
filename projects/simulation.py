@@ -115,8 +115,8 @@ ACTION2ID = {'up': 0, 'down': 1, 'left': 2, 'right': 3, 'pass': 4}
 
 # Agent initialization.
 sess = tf.Session()
-agent = Agent01(sess, conv_layers=((2, 128), (2, 64)),
-                dense_layers=(64, 32, 5))
+agent = Agent01(sess, conv_layers=((3, 128), (2, 64)),
+                dense_layers=(64, 32, 5), learning_rate=0.0001)
 agent.copy_A_to_B()
 
 # Environment initialization.
