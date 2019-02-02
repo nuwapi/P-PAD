@@ -85,7 +85,7 @@ MIN_STEP_SARS = 200
 # Take log10 of the raw reward value or not.
 LOG10_REWARD = True
 # Discount rate gamma.
-GAMMA = 0.8
+GAMMA = 0.95
 
 # Exploration policy.
 POLICY = 'boltzmann'
@@ -115,7 +115,7 @@ ACTION2ID = {'up': 0, 'down': 1, 'left': 2, 'right': 3, 'pass': 4}
 
 # Agent initialization.
 sess = tf.Session()
-agent = Agent01(sess, conv_layers=((3, 128), (2, 64)),
+agent = Agent01(sess, conv_layers=((2, 128), (2, 64)),
                 dense_layers=(64, 32, 5), learning_rate=0.0001)
 agent.copy_A_to_B()
 
