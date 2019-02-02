@@ -93,3 +93,5 @@ print('\nLoad the model.')
 agent.load(checkpoint='/home/nwang/Documents/model-ckpt.100')
 print('\nDo a predict with B.')
 print('Rewards:', agent.predict(board, finger, model='B'))
+
+agent.tensorboard('.')

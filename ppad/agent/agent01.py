@@ -16,6 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>
 """
 
+import os
 import numpy as np
 import tensorflow as tf
 import datetime
@@ -28,8 +29,7 @@ class Agent01:
                  tg_shape=(5,),
                  conv_layers=((3, 32), (3, 32)),
                  dense_layers=(64, 5),
-                 learning_rate=0.01,
-                 tensorboard_path=None):
+                 learning_rate=0.01):
         """
 
         :param sess: TensorFlow session.
@@ -38,7 +38,6 @@ class Agent01:
         :param conv_layers: Tuple of kernel lengths. The length of the tuple equals to the number of conv layers to use.
         :param dense_layers: Tuple of dense layer units. The length of the tuple equals to the number of dense layers to use.
         :param learning_rate: The learning rate.
-        :param tensorboard_path: Optional. Where to save tensorboard logs.
         """
         self.sess = sess
         self.st_shape = st_shape
@@ -48,7 +47,6 @@ class Agent01:
         self.learning_rate = learning_rate
         self.num_conv_layers = len(conv_layers)
         self.num_dense_layers = len(dense_layers)
-        self.tensorboard_path = tensorboard_path
         self.last_action = None
 
         if self.dense_layers[-1] != self.tg_shape[0]:
@@ -70,13 +68,6 @@ class Agent01:
         # Initialize all variables.
         self.sess.run(tf.global_variables_initializer())
 
-        # Initialize Tensorboard.
-        if tensorboard_path is not None:
-            # TODO: Add tensorboard.
-            self.tensorboard = None
-        else:
-            self.tensorboard = None
-
     def initialize_model(self, scope):
         with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
             # Define input data. The batch size is undetermined.
@@ -97,7 +88,8 @@ class Agent01:
                 )
                 conv_layer_in = conv_layer_out
             
-            relu_conv_layer = tf.nn.leaky_relu(conv_layer_out,)
+            relu_conv_layer = tf.nn.leaky_relu(conv_layer_out, name='model_core/leaky_relu')
+
             dense_layer_in = tf.contrib.layers.flatten(relu_conv_layer, scope='model_core/conv_flatten')
             for i in range(len(self.dense_layers)):
                 dense_layer_out = tf.layers.dense(
@@ -109,7 +101,7 @@ class Agent01:
                 )
                 dense_layer_in = dense_layer_out
 
-            q_values = tf.nn.relu(dense_layer_out)
+            q_values = tf.nn.relu(dense_layer_out, name='model_core/final_relu')
             loss = tf.reduce_mean(tf.squared_difference(q_values, target))
 
             return state, target, q_values, loss
@@ -261,7 +253,15 @@ class Agent01:
             board = boards[i, :]
             finger = fingers[i, :]
             for j in range(6):
-                states[i,:,:,j] = np.array(board == j)
+                states[i, :, :, j] = np.array(board == j)
             states[i, finger[0], finger[1], 6] = 1
 
         return states
+
+    def tensorboard(self, data_path=None):
+        if data_path is None:
+            print('Please provide a data_path to save the graph information to.')
+
+        data_path = os.path.abspath(data_path)
+        tf.summary.FileWriter(data_path, tf.get_default_graph())
+        print('Type "tensorboard --logdir={0}" in your shell to view your model graph.'.format(data_path))
