@@ -6,19 +6,7 @@ The project is still evolving but currently we are trying:
 * Experience replay.
 * A frozen model B for action reward prediction.
 
-### Random sampling
-![Random exploration](https://github.com/nuwapi/P-PAD/blob/master/visualizations/random_sampling.gif)
+### One combo agent
+Feb 2nd, 2019: Our agent now makes one combo then passes.
 
-### Generating training data from solved boards
-Examples of solved boards:
-
-![Perfect board 1](https://github.com/nuwapi/P-PAD/blob/master/visualizations/solved_board1.png)
-![Perfect board 2](https://github.com/nuwapi/P-PAD/blob/master/visualizations/solved_board2.png)
-![Perfect board 3](https://github.com/nuwapi/P-PAD/blob/master/visualizations/solved_board3.png)
-![Perfect board 4](https://github.com/nuwapi/P-PAD/blob/master/visualizations/solved_board4.png)
-![Perfect board 5](https://github.com/nuwapi/P-PAD/blob/master/visualizations/solved_board5.png)
-
-Training data generated from solved boards:
-
-![Smart data generation 1](https://github.com/nuwapi/P-PAD/blob/master/visualizations/smart_data.gif)
-
+![one combo agent](https://github.com/nuwapi/P-PAD/blob/master/visualizations/one_combo.gif)
