@@ -83,20 +83,24 @@ MAX_EPISODE_LEN = 200
 MIN_STEP_SARS = 200
 
 # Take log10 of the raw reward value or not.
-LOG10_REWARD = True
+LOG10_REWARD = False
 # Discount rate gamma.
 GAMMA = 0.95
 
 # Exploration policy.
 POLICY = 'boltzmann'
-# The initial beta for Boltzmann policy.
-BETA_INIT = 10**-2
+# The initial and max beta for Boltzmann policy
+
+if LOG10_REWARD:
+    BETA_INIT = 10**-2
+    MAX_BETA = 5
+else:
+    BETA_INIT = 10**-4
+    MAX_BETA = 10**-2
 # Beta increases every this number of steps.
 BETA_INCREASE_FREQ = 200  
 # The ratio of beta increase.
 BETA_INCREASE_RATE = 1.25
-# Set a max for beta
-MAX_BETA = 1
 
 # Save every this number of steps.
 SAVE_FREQ = 10**3
