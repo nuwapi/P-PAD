@@ -198,7 +198,7 @@ class PAD:
         # Final result
         return sum(damage_tracker.values())
 
-    def drop(self):
+    def drop(self, board):
         """
         Move all orbs vertically downwards to fill in empty spaces.
         """
@@ -207,17 +207,18 @@ class PAD:
             # What is left in the current column?
             col = []
             for x in range(self.dim_row):
-                if self.board[x, y] != -1:
-                    col.append(self.board[x, y])
+                if board[x, y] != -1:
+                    col.append(board[x, y])
 
             # Reset the column.
-            self.board[:, y] = -1
+            board[:, y] = -1
 
             # Fill in what is left.
             num_canceled = self.dim_row - len(col)
             for x in range(len(col)):
-                self.board[x + num_canceled, y] = col[x]
+                board[x + num_canceled, y] = col[x]
         # TODO: Apply the same update to enhanced and locked boards.
+        return board
 
     def visualize(self, filename, shrink=3, animate=True):
         """
@@ -228,7 +229,7 @@ class PAD:
         """
         pad_utils.episode2gif(observations=self.observations, actions=self.actions, filename=filename, shrink=shrink, animate=animate)
 
-    def fill_board(self, reset=False):
+    def fill_board(self, board=None, reset=False):
         """
         The state of the board is represented by integers.
         We do not handle locked and enhanced orbs at this stage.
@@ -243,11 +244,16 @@ class PAD:
         7  - poison
         8  - mortal poison
         9  - bomb
+        :param board: The board you want to fill.
         :param reset: If True, clear out the board first before filling.
         """
-        for orb in np.nditer(self.board, op_flags=['readwrite']):
+        if board is None:
+            board = self.board
+
+        for orb in np.nditer(board, op_flags=['readwrite']):
             if orb == -1 or reset is True:
                 orb[...] = self.random_orb(self.skyfall)
+        return board
 
         # TODO: In the future, enhanced and locked arrays should also be updated here.
 
@@ -296,7 +302,7 @@ class PAD:
         random.seed(datetime.now())
         if board is None:
             while True:
-                self.fill_board(reset=True)
+                self.board = self.fill_board(reset=True)
                 combos = pad_utils.cancel(self.board)
                 if len(combos) == 0:
                     break
@@ -329,8 +335,6 @@ class PAD:
         """
         # We don't give intermediate rewords.
         reward = 0
-        # The finger moving episode is not over by default.
-        done = False
         # Make sure the PlayerAction finger position is up to date.
         self.action_space.finger = self.finger
 
@@ -340,43 +344,7 @@ class PAD:
 
         # If the agent decides to stop moving the finger.
         if action is 'pass':
-            done = True
-            # A list of dictionaries to store combos.
-            all_combos = []
-            # Repeat the combo detection until nothing more can be canceled.
-            while True:
-                if verbose is True:
-                    print('Board before combo canceling:')
-                    self.render()
-
-                combos = pad_utils.cancel(self.board)
-                if verbose is True:
-                    print('Board after combo canceling:')
-                    self.render()
-
-                # Break out of the loop if nothing can be canceled.
-                if len(combos) < 1:
-                    break
-
-                # Add combo to combo list and skyfall.
-                all_combos += combos
-                if self.skyfall_damage is False:
-                    break
-
-                self.drop()
-                if verbose is True:
-                    print('Board after orb drop:')
-                    self.render()
-                self.fill_board()
-                if verbose is True:
-                    print('Board after fill board:')
-                    self.render()
-
-            # Reward is the total damage calculated based on combos.
-            reward = self.damage(all_combos)
-            if verbose is True:
-                print(all_combos)
-                print('The total damange is:', reward)
+            reward = self.calculate_reward(board=self.board, skyfall_damage=self.skyfall_damage, verbose=verbose)
         else:
             comment = self.apply_action(action)
             if comment == 'accepted':
@@ -388,9 +356,6 @@ class PAD:
             else:
                 print('Invalid move, you cannot move off the board!')
 
-        # TODO: In the future, we would want to output locked and enhanced as observations as well.
-        info = 'Currently, we do not provide info.'
-
         # Save current state to the record.
         if action is not 'pass':
             self.observations.append((np.copy(self.board), np.copy(self.finger)))
@@ -399,7 +364,63 @@ class PAD:
         self.actions.append(action)
         self.rewards.append(reward)
 
-        return (self.boards[-1], self.fingers[-1]), reward, done, info
+    def calculate_reward(self, board=None, skyfall_damage=True, verbose=False):
+        # Make a copy of the board.
+        board = np.copy(board)
+
+        # A list of dictionaries to store combos.
+        all_combos = []
+        # Repeat the combo detection until nothing more can be canceled.
+        while True:
+            if verbose is True:
+                print('Board before combo canceling:')
+                self.render(board)
+
+            combos = pad_utils.cancel(board)
+            if verbose is True:
+                print('Board after combo canceling:')
+                self.render(board)
+
+            # Break out of the loop if nothing can be canceled.
+            if len(combos) < 1:
+                break
+
+            # Add combo to combo list and skyfall.
+            all_combos += combos
+            if skyfall_damage is False:
+                break
+
+            board = self.drop(board=board)
+            if verbose is True:
+                print('Board after orb drop:')
+                self.render(board)
+            board = self.fill_board(board=board)
+            if verbose is True:
+                print('Board after fill board:')
+                self.render(board)
+
+        # Reward is the total damage calculated based on combos.
+        reward = self.damage(all_combos)
+        if verbose is True:
+            print(all_combos)
+            print('The total damange is:', reward)
+
+        return reward
+
+    def backtrack(self, n=1):
+        """
+        Backtrack n steps.
+        """
+        if n >= len(self.boards):
+            print('ERROR: Cannot backtrack more than the length of the trajectory.')
+            exit()
+
+        for _ in range(n):
+            self.observations.pop()
+            self.boards.pop()
+            self.fingers.pop()
+            self.actions.pop()
+            self.rewards.pop()
 
     def swap(self, x1, y1, x2, y2, move_finger):
         """
