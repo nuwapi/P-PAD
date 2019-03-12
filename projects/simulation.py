@@ -76,91 +76,89 @@ def model_simulation_2sla(agent, min_data_points, gamma, log10_reward=False,
     num_episodes = 0
     all_non_pass_actions = ['up', 'down', 'left', 'right']
 
+    # We want to collect at least min_data_points number of data points.
     while len(sim_sars) < min_data_points:
+        # Reset the environment to start a new simulation.
         env.reset()
-
-        counter = 0
+        episode_len_counter = 0
         action = None
         num_episodes += 1
 
+        # Simulation and finish an episode before going into 2sla.
         while action != 'pass':
             last_action = agent.last_action
-            if counter > max_episode_len:
+            if episode_len_counter > max_episode_len:
                 action = 'pass'
                 agent.last_action = 'pass'
             else:
                 action = agent.act(env.board, env.finger, 'A', method=policy, beta=beta)
-
-            # Do 2-step look ahead if the action is pass.
-            if action == 'pass':
-                # Priority 1: The original pass.
-                step0_reward = env.calculate_reward(board=env.board, skyfall_damage=False)
-
-                # Priority 2: 1-step look ahead.
-                # Generate the actions for the 1st step.
-                invalid_action = env.action_space.opposite_actions[last_action]
-                step1_actions = [item for item in all_non_pass_actions if item != invalid_action]
-                # FIXME: shuffle me!!!
-                step1_rewards = []
-                for step1_action in step1_actions:
-                    env.step(step1_action)
-                    step1_rewards.append(env.calculate_reward(board=env.board, skyfall_damage=False))
-                    env.backtrack(n=1)
-
-                # Combine priority 1 and 2 results.
-                if step0_reward >= max(step1_rewards):
-                    best_action = 'pass'
-                    best_reward = step0_reward
-                else:
-                    # In case more than one action gives the same reward, we should randomly choose one.
-                    max_reward = max(step1_rewards)
-                    best_actions = []
-                    best_rewards = []
-                    for i in range(len(step1_rewards)):
-                        if step1_rewards[i] == max_reward:
-                            best_actions.append(step1_actions[i])
-                            best_rewards.append(step1_rewards[i])
-                    best_index = np.random.randint(0, len(best_actions))
-                    best_action = best_actions[best_index]
-                    best_reward = best_rewards[best_index]
-
-                # Priority 3: 2-step look ahead.
-                best_traj_boards = None
-                best_traj_fingers = None
-                best_traj_actions = None
-                best_traj_reward = -1
-                for step1_action in step1_actions:
-                    invalid_action = env.action_space.opposite_actions[step1_action]
-                    step2_actions = [item for item in all_non_pass_actions if item != invalid_action]
-                    for step2_action in step2_actions:
-                        steps_made = 2
-                        env.step(step1_action)
-                        env.step(step2_action)
-                        agent.last_action = step2_action
-                        lookahead_action = ''
-
-                        while lookahead_action != 'pass':
-                            if steps_made > max_lookahead_len:
-                                lookahead_action = 'pass'
-                                agent.last_action = 'pass'
-                            else:
-                                lookahead_action = agent.act(env.board, env.finger, 'A', method=policy, beta=beta)
-
-                            if lookahead_action != 'pass':
-                                env.step(lookahead_action)
-                                steps_made += 1
-                            else:
-                                step2_reward = env.calculate_reward(board=env.board, skyfall_damage=False)
-                                if step2_reward > best_traj_reward:
-                                    best_traj_boards = list(env.boards)
-                                    best_traj_fingers = list(env.fingers)
-                                    best_traj_actions = list(env.actions)
-                                env.backtrack(n=steps_made)
-
-            # Proceed normally.
-            else:
                 env.step(action)
-                counter += 1
+                episode_len_counter += 1
+
+        # Do 2-step look ahead if the action is pass.
+        # Priority 1: The original pass.
+        step0_reward = env.calculate_reward(board=env.board, skyfall_damage=False)
+
+        # Priority 2: 1-step look ahead.
+        # Generate the actions for the 1st step.
+        invalid_action = env.action_space.opposite_actions[last_action]
+        step1_actions = [item for item in all_non_pass_actions if item != invalid_action]
+        # FIXME: shuffle me!!!
+        step1_rewards = []
+        for step1_action in step1_actions:
+            env.step(step1_action)
+            step1_rewards.append(env.calculate_reward(board=env.board, skyfall_damage=False))
+            env.backtrack(n=1)
+
+        # Combine priority 1 and 2 results.
+        if step0_reward >= max(step1_rewards):
+            best_action = 'pass'
+            best_reward = step0_reward
+        else:
+            # In case more than one action gives the same reward, we should randomly choose one.
+            max_reward = max(step1_rewards)
+            best_actions = []
+            best_rewards = []
+            for i in range(len(step1_rewards)):
+                if step1_rewards[i] == max_reward:
+                    best_actions.append(step1_actions[i])
+                    best_rewards.append(step1_rewards[i])
+            best_index = np.random.randint(0, len(best_actions))
+            best_action = best_actions[best_index]
+            best_reward = best_rewards[best_index]
+
+        # Priority 3: 2-step look ahead.
+        best_traj_boards = None
+        best_traj_fingers = None
+        best_traj_actions = None
+        best_traj_reward = -1
+        for step1_action in step1_actions:
+            invalid_action = env.action_space.opposite_actions[step1_action]
+            step2_actions = [item for item in all_non_pass_actions if item != invalid_action]
+            for step2_action in step2_actions:
+                steps_made = 2
+                env.step(step1_action)
+                env.step(step2_action)
+                agent.last_action = step2_action
+                lookahead_action = ''
+
+                while lookahead_action != 'pass':
+                    if steps_made > max_lookahead_len:
+                        lookahead_action = 'pass'
+                        agent.last_action = 'pass'
+                    else:
+                        lookahead_action = agent.act(env.board, env.finger, 'A', method=policy, beta=beta)
+
+                    if lookahead_action != 'pass':
+                        env.step(lookahead_action)
+                        steps_made += 1
+                    else:
+                        step2_reward = env.calculate_reward(board=env.board, skyfall_damage=False)
+                        if step2_reward > best_traj_reward:
+                            best_traj_boards = list(env.boards)
+                            best_traj_fingers = list(env.fingers)
+                            best_traj_actions = list(env.actions)
+                        env.backtrack(n=steps_made)
 
         discounted_rewards = ppad.discount(rewards=env.rewards, gamma=gamma, log10=log10_reward)
         sim_sars.extend(zip(list(env.observations), list(env.actions), list(discounted_rewards)))
