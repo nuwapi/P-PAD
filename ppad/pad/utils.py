@@ -70,6 +70,20 @@ def cancel(board):
     return combos
 
 
+def illegal_actions(finger, dim_row=5, dim_col=6):
+    illegal_actions = set()
+
+    if finger[0] == 0:
+        illegal_actions.add('up')
+    elif finger[0] == dim_row - 1:
+        illegal_actions.add('down')
+    if finger[1] == 0:
+        illegal_actions.add('left')
+    elif finger[1] == dim_col - 1:
+        illegal_actions.add('right')
+    return illegal_actions
+
+
 def detect_island(board, island, x, y, orb_type):
     """
     Recursively detect islands of conneted orbs.

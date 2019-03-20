@@ -47,7 +47,7 @@ class Agent01:
         self.learning_rate = learning_rate
         self.num_conv_layers = len(conv_layers)
         self.num_dense_layers = len(dense_layers)
-        self.last_action = None
+        self.last_action = 4  # 4 is pass.
 
         if self.dense_layers[-1] != self.tg_shape[0]:
             raise Exception('ERROR: The last dense layer needs to have the shape of the target!')
