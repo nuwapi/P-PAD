@@ -296,7 +296,7 @@ class PAD:
         self.fingers = []
         self.actions = []
         self.rewards = []
-        self.action_space.previous_action = None
+        self.action_space.previous_action = 'pass'
 
         # Reset game state.
         random.seed(datetime.now())
@@ -338,10 +338,6 @@ class PAD:
         # Make sure the PlayerAction finger position is up to date.
         self.action_space.finger = self.finger
 
-        # TODO: This is hard coded in.
-        # if self.action_space.opposite_actions[action] == self.action_space.previous_action:
-        #     action = 'pass'
-
         # If the agent decides to stop moving the finger.
         if action is 'pass':
             reward = self.calculate_reward(board=self.board, skyfall_damage=self.skyfall_damage, verbose=verbose)
@@ -354,7 +350,8 @@ class PAD:
 
                 self.action_space.previous_action = action
             else:
-                print('Invalid move, you cannot move off the board!')
+                raise ValueError('Invalid move, you cannot move off the board!\n'
+                                 'Finger = {}, action = {}'.format(self.finger, action))
 
         # Save current state to the record.
         if action is not 'pass':
@@ -421,6 +418,13 @@ class PAD:
             self.fingers.pop()
             self.actions.pop()
             self.rewards.pop()
+
+        self.board = np.copy(self.boards[-1])
+        self.finger = np.copy(self.fingers[-1])
+        if len(self.actions) > 0:
+            self.action_space.previous_action = self.actions[-1]
+        else:
+            self.action_space.previous_action = 'pass'
 
     def swap(self, x1, y1, x2, y2, move_finger):
         """

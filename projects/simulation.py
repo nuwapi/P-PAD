@@ -93,8 +93,10 @@ def model_simulation_2sla(agent, min_data_points, gamma, log10_reward=False,
                 action = 'pass'
             else:
                 action = agent.act(env.board, env.finger, 'A', method=policy, beta=beta)
-                env.step(action)
                 episode_len_counter += 1
+
+            if action != 'pass':
+                env.step(action)
 
         # Do 2-step look ahead off-policy when the episode finishes naturally.
         all_action_sequences = []
@@ -119,13 +121,15 @@ def model_simulation_2sla(agent, min_data_points, gamma, log10_reward=False,
         # Priority 3: 2-step look ahead plus free roam.
         random.shuffle(step1_actions)
         for step1_action in step1_actions:
+            env.step(step1_action)
+
             invalid_actions = illegal_actions(env.finger)
             invalid_actions.add(env.action_space.opposite_actions[step1_action])
             step2_actions = list(NON_PASS_ACTIONS - invalid_actions)
             random.shuffle(step2_actions)
+
             for step2_action in step2_actions:
-                steps_made = 2
-                env.step(step1_action)
+                steps_made = 1
                 env.step(step2_action)
                 agent.last_action = ACTION2ID[step2_action]
                 roaming_action = ''
@@ -137,7 +141,6 @@ def model_simulation_2sla(agent, min_data_points, gamma, log10_reward=False,
                         agent.last_action = ACTION2ID['pass']
                     else:
                         roaming_action = agent.act(env.board, env.finger, 'A', method=policy, beta=beta)
-
                     current_action_list.append(roaming_action)
 
                     if roaming_action != 'pass':
@@ -146,7 +149,13 @@ def model_simulation_2sla(agent, min_data_points, gamma, log10_reward=False,
                     else:
                         all_rewards.append(env.calculate_reward(board=env.board, skyfall_damage=False))
                         all_action_sequences.append(current_action_list)
+
+                        # Backtrack step 2s.
                         env.backtrack(n=steps_made)
+                        break
+
+            # Backtrack step 1.
+            env.backtrack(n=1)
 
         max_reward = max(all_rewards)
         max_reward_index = 0

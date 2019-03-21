@@ -72,7 +72,6 @@ def cancel(board):
 
 def illegal_actions(finger, dim_row=5, dim_col=6):
     illegal_actions = set()
-
     if finger[0] == 0:
         illegal_actions.add('up')
     elif finger[0] == dim_row - 1:
