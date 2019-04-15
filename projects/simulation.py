@@ -19,11 +19,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>
 import os
 from importlib import reload
 import numpy as np
+import random
 import tensorflow as tf
 from random import shuffle, sample
 import ppad
 ppad = reload(ppad)
 from ppad.agent.agent01 import Agent01
+from ppad.pad.utils import illegal_actions
 
 
 ############################
@@ -48,7 +50,7 @@ def model_simulation(agent, min_data_points, gamma, log10_reward=False,
         while action != 'pass':
             if counter > max_episode_len:
                 action = 'pass'
-                agent.last_action = 'pass'
+                agent.last_action = ACTION2ID['pass']
             else:
                 action = agent.act(env.board, env.finger, 'A', method=policy, 
                                    beta=beta, epsilon=epsilon)
@@ -58,6 +60,121 @@ def model_simulation(agent, min_data_points, gamma, log10_reward=False,
         discounted_rewards = ppad.discount(rewards=env.rewards, gamma=gamma, log10=log10_reward)
         sim_sars.extend(zip(list(env.observations), list(env.actions), list(discounted_rewards)))
         
+        if visualize:
+            env.visualize(filename='/home/chris/Documents/model_trajectory.gif')
+            print('* Saving the model trajectory.')
+            break
+
+    return sim_sars, num_episodes
+
+
+def model_simulation_2sla(agent, min_data_points, gamma, log10_reward=False,
+                          policy='max', beta=None, max_episode_len=50,
+                          max_lookahead_len=10, visualize=False):
+    """
+    Generates data step by step according to model policy.
+    The 2-step look ahead (2sla) version.
+    """
+    sim_sars = []
+    num_episodes = 0
+
+    # We want to collect at least min_data_points number of data points.
+    while len(sim_sars) < min_data_points:
+        # Reset the environment to start a new simulation.
+        env.reset()
+        num_episodes += 1
+
+        # Simulate and finish an episode before going into 2sla.
+        action = None
+        last_action = 'pass'
+        episode_len_counter = 0
+        while action != 'pass':
+            last_action = ID2ACTION[agent.last_action]
+            if episode_len_counter >= max_episode_len:
+                action = 'pass'
+            else:
+                action = agent.act(env.board, env.finger, 'A', method=policy, beta=beta)
+                episode_len_counter += 1
+
+            if action != 'pass':
+                env.step(action)
+
+        # Do 2-step look ahead off-policy when the episode finishes naturally.
+        all_action_sequences = []
+        all_rewards = []
+
+        # Priority 1: The original pass.
+        all_action_sequences.append(['pass'])
+        all_rewards.append(env.calculate_reward(board=env.board, skyfall_damage=False))
+
+        # Priority 2: 1-step look ahead.
+        # FIXME: What happens if action makes env go out of bounds?
+        invalid_actions = illegal_actions(env.finger)
+        invalid_actions.add(env.action_space.opposite_actions[last_action])
+        step1_actions = list(NON_PASS_ACTIONS - invalid_actions)
+        random.shuffle(step1_actions)
+        for action in step1_actions:
+            env.step(action)
+            all_action_sequences.append([action, 'pass'])
+            all_rewards.append(env.calculate_reward(board=env.board, skyfall_damage=False))
+            env.backtrack(n=1)
+
+        # Priority 3: 2-step look ahead plus free roam.
+        random.shuffle(step1_actions)
+        for step1_action in step1_actions:
+            env.step(step1_action)
+
+            invalid_actions = illegal_actions(env.finger)
+            invalid_actions.add(env.action_space.opposite_actions[step1_action])
+            step2_actions = list(NON_PASS_ACTIONS - invalid_actions)
+            random.shuffle(step2_actions)
+
+            for step2_action in step2_actions:
+                steps_made = 1
+                env.step(step2_action)
+                agent.last_action = ACTION2ID[step2_action]
+                roaming_action = ''
+                current_action_list = [step1_action, step2_action]
+
+                while roaming_action != 'pass':
+                    if steps_made >= max_lookahead_len:
+                        roaming_action = 'pass'
+                        agent.last_action = ACTION2ID['pass']
+                    else:
+                        roaming_action = agent.act(env.board, env.finger, 'A', method=policy, beta=beta)
+                    current_action_list.append(roaming_action)
+
+                    if roaming_action != 'pass':
+                        env.step(roaming_action)
+                        steps_made += 1
+                    else:
+                        all_rewards.append(env.calculate_reward(board=env.board, skyfall_damage=False))
+                        all_action_sequences.append(current_action_list)
+
+                        # Backtrack step 2s.
+                        env.backtrack(n=steps_made)
+                        break
+
+            # Backtrack step 1.
+            env.backtrack(n=1)
+
+        max_reward = max(all_rewards)
+        max_reward_index = 0
+        assert len(all_rewards) == len(all_action_sequences)
+        # The appending order ensures priority.
+        for i in range(len(all_rewards)):
+            if max_reward == all_rewards[i]:
+                max_reward_index = i
+
+        assert agent.last_action == ACTION2ID['pass']
+        for action in all_action_sequences[max_reward_index]:
+            # TODO: Check that pass has been been passed to env prior to this.
+            # TODO: Also, what is the behavior of env when pass is given?
+            env.step(action)
+
+        discounted_rewards = ppad.discount(rewards=env.rewards, gamma=gamma, log10=log10_reward)
+        sim_sars.extend(zip(list(env.observations), list(env.actions), list(discounted_rewards)))
+
         if visualize:
             env.visualize(filename='/home/chris/Documents/model_trajectory.gif')
             print('* Saving the model trajectory.')
@@ -79,7 +196,7 @@ BATCH_SIZE = 32
 # Update model B every this number of steps.
 B_UPDATE_FREQ = 10
 # If a game episode doesn't end after this number of steps, give 'pass' to the env.
-MAX_EPISODE_LEN = 200
+MAX_EPISODE_LEN = 50
 # The minimum number of SAR pairs to collect per training step.
 MIN_STEP_SARS = 200
 
@@ -105,6 +222,9 @@ BETA_INCREASE_FREQ = 200
 # The ratio of beta increase.
 BETA_INCREASE_RATE = 1.25
 
+# Look ahead length.
+MAX_LOOKAHEAD_LEN = 10
+
 # Save every this number of steps.
 SAVE_FREQ = 10**3
 # Save path.
@@ -114,6 +234,8 @@ REPORT_FREQ = 10
 
 # Action dictionary.
 ACTION2ID = {'up': 0, 'down': 1, 'left': 2, 'right': 3, 'pass': 4}
+ID2ACTION = {0: 'up', 1: 'down', 2: 'left', 3: 'right', 4: 'pass'}
+NON_PASS_ACTIONS = {'up', 'down', 'left', 'right'}
 
 
 ############################
@@ -157,9 +279,12 @@ for step in range(STEPS):
         print('* Beta updated to {0}'.format(beta))
 
     # b. Generate new training data.
-    sar_new, num_episodes = model_simulation(agent, min_data_points=MIN_STEP_SARS, gamma=GAMMA,
+    # sar_new, num_episodes = model_simulation(agent, min_data_points=MIN_STEP_SARS, gamma=GAMMA,
+    #                                          log10_reward=LOG10_REWARD, policy=POLICY, beta=beta,
+    #                                          max_episode_len=MAX_EPISODE_LEN)
+    sar_new, num_episodes = model_simulation_2sla(agent, min_data_points=MIN_STEP_SARS, gamma=GAMMA,
                                              log10_reward=LOG10_REWARD, policy=POLICY, beta=beta,
-                                             max_episode_len=MAX_EPISODE_LEN, epsilon=EPSILON)
+                                             max_episode_len=MAX_EPISODE_LEN, max_lookahead_len=MAX_LOOKAHEAD_LEN, epsilon=EPSILON))
     new_data_len = len(sar_new)
     total_new_data_points += new_data_len
     total_episodes += num_episodes
@@ -233,6 +358,3 @@ for step in range(STEPS):
         checkpoint_name = 'model-ckpt.' + str(step)
         checkpoint_name = os.path.join(SAVE_PATH, checkpoint_name)
         agent.save(checkpoint=checkpoint_name)
-
-# Useful for debugging
-# agent.predict(env.board.reshape(1,5,6), env.finger.reshape(1,2))

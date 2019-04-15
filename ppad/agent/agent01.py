@@ -47,7 +47,7 @@ class Agent01:
         self.learning_rate = learning_rate
         self.num_conv_layers = len(conv_layers)
         self.num_dense_layers = len(dense_layers)
-        self.last_action = None
+        self.last_action = 4  # 4 is pass.
 
         if self.dense_layers[-1] != self.tg_shape[0]:
             raise Exception('ERROR: The last dense layer needs to have the shape of the target!')
@@ -173,19 +173,19 @@ class Agent01:
         if finger[0, 0] == 0:
             q_value_predictions[0] = -np.inf  # Can't go up.
         elif finger[0, 0] == self.st_shape[0] - 1:
-            q_value_predictions[1] = -np.inf # Can't go down.
+            q_value_predictions[1] = -np.inf  # Can't go down.
         if finger[0, 1] == 0:
             q_value_predictions[2] = -np.inf  # Can't go left.
         elif finger[0, 1] == self.st_shape[1] - 1:
-            q_value_predictions[3] = -np.inf # Can't go right.
+            q_value_predictions[3] = -np.inf  # Can't go right.
         
         # Penalize last move
         if self.last_action == 0: 
-            q_value_predictions[1] = -np.inf # Can't go down.
+            q_value_predictions[1] = -np.inf  # Can't go down.
         elif self.last_action == 1:
-            q_value_predictions[0] = -np.inf # Can't go up.
+            q_value_predictions[0] = -np.inf  # Can't go up.
         elif self.last_action == 2:
-            q_value_predictions[3] = -np.inf # Can't go right.
+            q_value_predictions[3] = -np.inf  # Can't go right.
         elif self.last_action == 3:
             q_value_predictions[2] = -np.inf  # Can't go left.
         
