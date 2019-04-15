@@ -70,7 +70,7 @@ def model_simulation(agent, min_data_points, gamma, log10_reward=False,
 
 def model_simulation_2sla(agent, min_data_points, gamma, log10_reward=False,
                           policy='max', beta=None, max_episode_len=50,
-                          max_lookahead_len=10, visualize=False):
+                          max_lookahead_len=10, visualize=False, epsilon=0):
     """
     Generates data step by step according to model policy.
     The 2-step look ahead (2sla) version.
@@ -284,7 +284,8 @@ for step in range(STEPS):
     #                                          max_episode_len=MAX_EPISODE_LEN)
     sar_new, num_episodes = model_simulation_2sla(agent, min_data_points=MIN_STEP_SARS, gamma=GAMMA,
                                              log10_reward=LOG10_REWARD, policy=POLICY, beta=beta,
-                                             max_episode_len=MAX_EPISODE_LEN, max_lookahead_len=MAX_LOOKAHEAD_LEN, epsilon=EPSILON))
+                                             max_episode_len=MAX_EPISODE_LEN, max_lookahead_len=MAX_LOOKAHEAD_LEN, 
+                                             epsilon=EPSILON)
     new_data_len = len(sar_new)
     total_new_data_points += new_data_len
     total_episodes += num_episodes
