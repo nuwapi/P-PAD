@@ -31,7 +31,7 @@ from ppad.agent.agent01 import Agent01
 ############################
 def model_simulation(agent, min_data_points, gamma, log10_reward=False,
                      policy='max', beta=None, max_episode_len=200,
-                     visualize=False):
+                     visualize=False, epsilon=0):
     """
     Generates data step by step according to model policy.
     """
@@ -50,7 +50,8 @@ def model_simulation(agent, min_data_points, gamma, log10_reward=False,
                 action = 'pass'
                 agent.last_action = 'pass'
             else:
-                action = agent.act(env.board, env.finger, 'A', method=policy, beta=beta)
+                action = agent.act(env.board, env.finger, 'A', method=policy, 
+                                   beta=beta, epsilon=epsilon)
             env.step(action)
             counter += 1
         
@@ -89,14 +90,16 @@ GAMMA = 0.95
 
 # Exploration policy.
 POLICY = 'boltzmann'
-# The initial and max beta for Boltzmann policy
+EPSILON = 0.2
 
+# The initial and max beta for Boltzmann policy
 if LOG10_REWARD:
     BETA_INIT = 10**-2
     MAX_BETA = 5
 else:
     BETA_INIT = 10**-4
     MAX_BETA = 10**-2
+
 # Beta increases every this number of steps.
 BETA_INCREASE_FREQ = 200  
 # The ratio of beta increase.
@@ -156,7 +159,7 @@ for step in range(STEPS):
     # b. Generate new training data.
     sar_new, num_episodes = model_simulation(agent, min_data_points=MIN_STEP_SARS, gamma=GAMMA,
                                              log10_reward=LOG10_REWARD, policy=POLICY, beta=beta,
-                                             max_episode_len=MAX_EPISODE_LEN)
+                                             max_episode_len=MAX_EPISODE_LEN, epsilon=EPSILON)
     new_data_len = len(sar_new)
     total_new_data_points += new_data_len
     total_episodes += num_episodes

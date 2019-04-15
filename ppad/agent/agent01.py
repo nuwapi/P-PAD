@@ -139,8 +139,22 @@ class Agent01:
         q_value_predictions = self.sess.run(fetches=[q_values_tensor], feed_dict=inputs)[0]
 
         return q_value_predictions
-
-    def act(self, board, finger, model='A', method='max', beta=None):
+    
+    def action_verb(self, action):
+        if action == 0:
+            return 'up'
+        elif action == 1:
+            return 'down'
+        elif action == 2:
+            return 'left'
+        elif action == 3:
+            return 'right'
+        elif action == 4:
+            return 'pass'
+        else:
+            raise Exception('Action type {0} is invalid.'.format(action))
+    
+    def act(self, board, finger, model='A', method='max', beta=None, epsilon=0):
         """
         Ask the agent to product an action based on the given state.
         :param board: Numpy array of size (5, 6). 1 for batch size 1.
@@ -175,6 +189,18 @@ class Agent01:
         elif self.last_action == 3:
             q_value_predictions[2] = -np.inf  # Can't go left.
         
+        # Epsilon greedy - can be combined with any other base policy
+        if epsilon>0:
+            if epsilon>np.random.rand():
+                action = None
+                while action is None:
+                    action = np.random.randint(5)
+                    if q_value_predictions[action]==-np.inf:
+                        action = None
+                self.last_action = action
+                return self.action_verb(action)
+        
+        
         # Choose an action according to the chosen method
         if str(method).lower() == 'max':
             action = np.argmax(q_value_predictions)
@@ -187,21 +213,9 @@ class Agent01:
                 action = np.random.choice(5,p=b_probs)
         else:
             raise Exception('ERROR: Unknown action method!')
-        # TODO: Epsilon greedy.
 
         self.last_action = action
-        if action == 0:
-            return 'up'
-        elif action == 1:
-            return 'down'
-        elif action == 2:
-            return 'left'
-        elif action == 3:
-            return 'right'
-        elif action == 4:
-            return 'pass'
-        else:
-            raise Exception('Action type {0} is invalid.'.format(action))
+        return self.action_verb(action)
 
     def save(self, checkpoint=None):
         if checkpoint is None:
